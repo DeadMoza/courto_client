@@ -18,7 +18,6 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
   late TextEditingController descriptionController;
   bool isAvailable = true;
   bool loading = false;
-  String? errorMessage;
 
   TimeOfDay? openTime;
   TimeOfDay? closeTime;
@@ -34,7 +33,6 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
         TextEditingController(text: widget.field["field_description"] ?? "");
     isAvailable = widget.field["field_is_available"] ?? true;
 
-    // Parse times to TimeOfDay
     openTime = _parseTime(widget.field["field_open_time"]);
     closeTime = _parseTime(widget.field["field_close_time"]);
   }
@@ -75,7 +73,6 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
   Future<void> saveField() async {
     setState(() {
       loading = true;
-      errorMessage = null;
     });
 
     final url =
@@ -102,20 +99,37 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
 
       if (res.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Field updated successfully")));
+            const SnackBar(content: Text("Field updated successfully"), backgroundColor: Colors.red));
         Navigator.pop(context, true);
       } else {
         final data = json.decode(res.body);
-        setState(() {
-          errorMessage = data["error"] ?? "Failed to update field";
-        });
+        _showError(data["error"] ?? "Failed to update field");
       }
     } catch (e) {
       setState(() {
         loading = false;
-        errorMessage = "Network error: $e";
       });
+      _showError("Network error: $e");
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red));
+  }
+
+  InputDecoration _inputDecoration(String label, {IconData? icon}) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: icon != null ? Icon(icon, color: Colors.red) : null,
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+    );
   }
 
   @override
@@ -129,8 +143,9 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.red[50],
       appBar: AppBar(
-        title: Text("Edit ${widget.field["field_name"]}"),
+        title: Text("Edit ${widget.field["field_name"]}", style: TextStyle(color: Colors.white),),
         backgroundColor: Colors.red,
       ),
       body: loading
@@ -139,64 +154,70 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  // Availability
                   CheckboxListTile(
                     title: const Text("Is available?"),
                     value: isAvailable,
+                    activeColor: Colors.red,
                     onChanged: (val) => setState(() => isAvailable = val ?? true),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
+                  // Price
                   TextField(
                     controller: priceController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: "Price",
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: _inputDecoration("Price", icon: Icons.attach_money_rounded),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
-                  ListTile(
-                    title: const Text("Open Time"),
-                    subtitle: Text(_formatTimeOfDay(openTime)),
-                    trailing: const Icon(Icons.access_time),
-                    onTap: () => _pickTime(isOpen: true),
+                  // Open/Close Times in a row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => _pickTime(isOpen: true),
+                          child: AbsorbPointer(
+                            child: TextField(
+                              decoration: _inputDecoration("Open Time", icon: Icons.access_time),
+                              controller: TextEditingController(text: _formatTimeOfDay(openTime)),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => _pickTime(isOpen: false),
+                          child: AbsorbPointer(
+                            child: TextField(
+                              decoration: _inputDecoration("Close Time", icon: Icons.lock_clock_rounded),
+                              controller: TextEditingController(text: _formatTimeOfDay(closeTime)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
-                  ListTile(
-                    title: const Text("Close Time"),
-                    subtitle: Text(_formatTimeOfDay(closeTime)),
-                    trailing: const Icon(Icons.access_time),
-                    onTap: () => _pickTime(isOpen: false),
-                  ),
-                  const SizedBox(height: 12),
-
+                  // Contact
                   TextField(
                     controller: contactController,
-                    decoration: const InputDecoration(
-                      labelText: "Field Contact Number",
-                      border: OutlineInputBorder(),
-                    ),
+                    keyboardType: TextInputType.phone,
+                    decoration: _inputDecoration("Field Contact Number", icon: Icons.phone),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
+                  // Description
                   TextField(
                     controller: descriptionController,
                     maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: "Description",
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: _inputDecoration("Description", icon: Icons.description),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
-                  if (errorMessage != null)
-                    Text(errorMessage!,
-                        style: const TextStyle(color: Colors.red)),
-
-                  const SizedBox(height: 12),
-
+                  // Save Button
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -205,11 +226,11 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30)),
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                       child: const Text(
                         "Save Changes",
-                        style: TextStyle(fontSize: 18),
+                        style: TextStyle(fontSize: 16, color: Colors.white),
                       ),
                     ),
                   ),

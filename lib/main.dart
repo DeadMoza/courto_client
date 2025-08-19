@@ -5,9 +5,8 @@ import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await AuthService.loadSession();
+  await AuthService.loadSession(); // wait for session before launching
   runApp(const MyApp());
-
 }
 
 class MyApp extends StatelessWidget {
