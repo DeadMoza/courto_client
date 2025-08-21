@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'booking_details_page.dart';
 
 class BookingSlotsPage extends StatelessWidget {
   final Map<String, dynamic> field;
@@ -36,36 +37,24 @@ class BookingSlotsPage extends StatelessWidget {
       slots.add(TimeSlot(start: start, end: end));
     }
 
-    // Assign background colors + track users
+    // Track bookings & assign colors
     List<Color?> backgrounds = List.filled(slots.length, null);
     List<String?> bookedByList = List.filled(slots.length, null);
 
     for (int i = 0; i < slots.length; i++) {
       final slot = slots[i];
-      final booking = bookings.firstWhere(
-        (b) {
-          final bookingDate = DateTime.parse(b['booking_date']);
-          final startParts = (b['start_time'] as String).split(':');
-          final start = DateTime(
-            bookingDate.year,
-            bookingDate.month,
-            bookingDate.day,
-            int.parse(startParts[0]),
-            int.parse(startParts[1]),
-          );
-          return slot.start.isAtSameMomentAs(start);
-        },
-        orElse: () => null,
-      );
+      final booking = _findBookingForSlot(slot);
 
       if (booking != null) {
         String status = booking['booking_status'] ?? "";
         String bookedBy = booking['booking_user'] ?? "";
         bookedByList[i] = bookedBy;
 
-        if (status == "pending") status = "Respond to request";
-        backgrounds[i] =
-            status == "Respond to request" ? Colors.yellow[200] : Colors.blue[100];
+        if (status == "pending") {
+          backgrounds[i] = Colors.yellow[200]; // pending
+        } else if (status == "confirmed") {
+          backgrounds[i] = Colors.blue[100]; // confirmed
+        }
       }
     }
 
@@ -83,50 +72,32 @@ class BookingSlotsPage extends StatelessWidget {
         itemCount: slots.length,
         itemBuilder: (context, i) {
           final slot = slots[i];
-          final booking = bookings.firstWhere(
-            (b) {
-              final bookingDate = DateTime.parse(b['booking_date']);
-              final startParts = (b['start_time'] as String).split(':');
-              final start = DateTime(
-                bookingDate.year,
-                bookingDate.month,
-                bookingDate.day,
-                int.parse(startParts[0]),
-                int.parse(startParts[1]),
-              );
-              return slot.start.isAtSameMomentAs(start);
-            },
-            orElse: () => null,
-          );
+          final booking = _findBookingForSlot(slot);
 
           bool isBooked = booking != null;
-          String status = booking?['booking_status'] ?? "";
           String bookedBy = booking?['booking_user'] ?? "";
-          if (status == "pending") status = "Respond to request";
 
           // ---- Group rounding logic ----
-          bool sameAsPrev = i > 0 && bookedByList[i] != null && bookedByList[i] == bookedByList[i - 1];
-          bool sameAsNext = i < slots.length - 1 && bookedByList[i] != null && bookedByList[i] == bookedByList[i + 1];
+          bool sameAsPrev =
+              i > 0 && bookedByList[i] != null && bookedByList[i] == bookedByList[i - 1];
+          bool sameAsNext =
+              i < slots.length - 1 && bookedByList[i] != null && bookedByList[i] == bookedByList[i + 1];
 
           BorderRadius radius;
           if (sameAsPrev && sameAsNext) {
-            // middle tile
-            radius = BorderRadius.zero;
+            radius = BorderRadius.zero; // middle
           } else if (sameAsPrev && !sameAsNext) {
-            // last tile
             radius = const BorderRadius.only(
               bottomLeft: Radius.circular(12),
               bottomRight: Radius.circular(12),
-            );
+            ); // last
           } else if (!sameAsPrev && sameAsNext) {
-            // first tile
             radius = const BorderRadius.only(
               topLeft: Radius.circular(12),
               topRight: Radius.circular(12),
-            );
+            ); // first
           } else {
-            // isolated tile
-            radius = BorderRadius.circular(12);
+            radius = BorderRadius.circular(12); // isolated
           }
 
           return Container(
@@ -143,14 +114,88 @@ class BookingSlotsPage extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-              subtitle: isBooked
+              subtitle: isBooked && !sameAsPrev
                   ? Center(child: Text("Booked by $bookedBy"))
                   : null,
-              onTap: isBooked ? () {} : null,
+              onTap: () {
+                if (isBooked) {
+                  // ---- Group consecutive slots for same booking ----
+                  int first = i;
+                  int last = i;
+                  while (first > 0 && bookedByList[first - 1] == bookedByList[i]) {
+                    first--;
+                  }
+                  while (last < slots.length - 1 &&
+                      bookedByList[last + 1] == bookedByList[i]) {
+                    last++;
+                  }
+
+                  // Re-fetch correct booking object
+                  final groupBooking = _findBookingForSlot(slots[first]);
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BookingDetailsPage(
+                        booking: groupBooking,
+                        start: slots[first].start,
+                        end: slots[last].end,
+                        field: field,
+                        token: token,
+                      ),
+                    ),
+                  );
+                } else {
+                  // Empty slot
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BookingDetailsPage(
+                        booking: null,
+                        start: slot.start,
+                        end: slot.end,
+                        field: field,
+                        token: token,
+                        isManualBlocked: backgrounds[i] == Colors.grey[300],
+                      ),
+                    ),
+                  );
+                }
+              },
             ),
           );
         },
       ),
+    );
+  }
+
+  /// Finds booking that covers this slot (start <= slot.start < end)
+  Map<String, dynamic>? _findBookingForSlot(TimeSlot slot) {
+    return bookings.firstWhere(
+      (b) {
+        final bookingDate = DateTime.parse(b['booking_date']);
+        final startParts = (b['start_time'] as String).split(':');
+        final endParts = (b['end_time'] as String).split(':');
+
+        final start = DateTime(
+          bookingDate.year,
+          bookingDate.month,
+          bookingDate.day,
+          int.parse(startParts[0]),
+          int.parse(startParts[1]),
+        );
+        final end = DateTime(
+          bookingDate.year,
+          bookingDate.month,
+          bookingDate.day,
+          int.parse(endParts[0]),
+          int.parse(endParts[1]),
+        );
+
+        return slot.start.isAtSameMomentAs(start) ||
+            (slot.start.isAfter(start) && slot.start.isBefore(end));
+      },
+      orElse: () => null,
     );
   }
 }
