@@ -1,3 +1,4 @@
+import 'package:client_app/constants.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'login_page.dart';
@@ -31,7 +32,7 @@ class _FieldsPageState extends State<FieldsPage> {
       errorMessage = null;
     });
 
-    final url = Uri.parse("http://192.168.3.180:3000/api/clients/getFields");
+    final url = Uri.parse("${apiUrl}api/clients/getFields");
     try {
       final res = await http.get(
         url,
@@ -56,7 +57,7 @@ class _FieldsPageState extends State<FieldsPage> {
       }
     } catch (e) {
       setState(() {
-        errorMessage = "Network error: $e";
+        errorMessage = "Failed to load, check your connection";
         loading = false;
       });
     }
@@ -65,7 +66,7 @@ class _FieldsPageState extends State<FieldsPage> {
   String getFirstImageUrl(List<dynamic> images) {
     if (images.isEmpty) return '';
     String url = images[0].toString();
-    if (url.startsWith('/')) url = 'http://192.168.3.180:3000$url';
+    if (url.startsWith('/')) url = 'http://192.168.1.100:3000$url';
     return url;
   }
 

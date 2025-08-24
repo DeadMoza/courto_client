@@ -1,3 +1,4 @@
+import 'package:client_app/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:http/http.dart' as http;
@@ -30,7 +31,7 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
   Future<void> fetchBookings() async {
     setState(() => loading = true);
     final url = Uri.parse(
-        "http://192.168.3.180:3000/api/clients/getfieldBookings/${widget.field['field_id']}");
+        "${apiUrl}api/clients/getfieldBookings/${widget.field['field_id']}");
 
     try {
       final res = await http.get(
@@ -68,61 +69,6 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
     return bookingsByDate[simpleDay] ?? [];
   }
 
-  int _toMinutes(String t) {
-    final p = t.split(':');
-    final hh = int.parse(p[0]);
-    final mm = int.parse(p[1]);
-    return hh * 60 + mm;
-  }
-
-  int _countBookingGroups(List<dynamic> bookings) {
-    if (bookings.isEmpty) return 0;
-
-    final items = bookings.map((b) {
-      final s = b['start_time'] as String;
-      final e = b['end_time'] as String;
-      return {
-        'start': _toMinutes(s),
-        'end': _toMinutes(e),
-        'user': b['booking_user']?.toString()
-      };
-    }).toList();
-
-    items.sort((a, b) {
-      final c = (a['start'] as int).compareTo(b['start'] as int);
-      return c != 0 ? c : (a['end'] as int).compareTo(b['end'] as int);
-    });
-
-    int groups = 0;
-    int currentEnd = -1;
-    String? currentUser;
-
-    for (final it in items) {
-      final start = it['start'] as int;
-      final end = it['end'] as int;
-      final user = it['user'] as String?;
-
-      if (groups == 0) {
-        groups = 1;
-        currentEnd = end;
-        currentUser = user;
-        continue;
-      }
-
-      final sameUser = (currentUser == null || user == currentUser);
-      final contiguous = start == currentEnd;
-
-      if (contiguous && sameUser) {
-        currentEnd = end;
-      } else {
-        groups++;
-        currentEnd = end;
-        currentUser = user;
-      }
-    }
-    return groups;
-  }
-
   String formatTime(String time) {
     try {
       final parts = time.split(":");
@@ -131,6 +77,63 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
     } catch (e) {
       return time;
     }
+  }
+
+  Color _fillForDay(DateTime day) {
+    final bookings = _getBookingsForDay(day);
+
+    final relevant = bookings.where((b) {
+      final status = (b['booking_status']?.toString().toLowerCase() ?? '');
+      return status == 'confirmed' || status == 'pending';
+    }).toList();
+
+    if (relevant.isEmpty) return Colors.transparent;
+
+    final confirmed = relevant
+        .where((b) => (b['booking_status']?.toString().toLowerCase() ?? '') == 'confirmed')
+        .length;
+
+    if (confirmed == relevant.length) {
+      return Colors.blue; // all confirmed
+    } else {
+      return Colors.orangeAccent; // mixed or pending
+    }
+  }
+
+  Widget _buildDayCell(
+    DateTime day, {
+    required Color fill,
+    required Color border,
+    Color? textColor,
+    bool isToday = false,
+    bool isSelected = false,
+  }) {
+    final hasFill = fill != Colors.transparent;
+    final numberColor = textColor ?? (hasFill ? Colors.white : Colors.black);
+
+    return Center(
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: fill,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: border,
+            width: border == Colors.transparent ? 0 : 2,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            '${day.day}',
+            style: TextStyle(
+              color: numberColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -161,12 +164,13 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
                           rowHeight: 52,
                           selectedDayPredicate: (day) =>
                               isSameDay(selectedDay, day),
-                          onDaySelected: (selected, focused) {
+                          onDaySelected: (selected, focused) async {
                             setState(() {
                               selectedDay = selected;
                               focusedDay = focused;
                             });
-                            Navigator.push(
+
+                            final result = await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => BookingSlotsPage(
@@ -177,6 +181,10 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
                                 ),
                               ),
                             );
+
+                            if (result == true) {
+                              fetchBookings();
+                            }
                           },
                           eventLoader: (_) => const [],
                           calendarStyle: const CalendarStyle(
@@ -228,11 +236,22 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
                               );
                             },
                             markerBuilder: (context, day, _) {
-                              final groups =
-                                  _countBookingGroups(_getBookingsForDay(day));
-                              if (groups <= 0) return const SizedBox.shrink();
+                              final bookings = _getBookingsForDay(day)
+                                  .where((b) {
+                                final status = (b['booking_status']
+                                        ?.toString()
+                                        .toLowerCase() ??
+                                    '');
+                                return status == 'confirmed' ||
+                                    status == 'pending';
+                              }).toList();
+
+                              if (bookings.isEmpty) return const SizedBox.shrink();
+
                               const maxDots = 6;
-                              final dots = groups > maxDots ? maxDots : groups;
+                              final dotsCount = bookings.length > maxDots
+                                  ? maxDots
+                                  : bookings.length;
 
                               return Positioned(
                                 bottom: 4,
@@ -240,14 +259,25 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
                                 right: 0,
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
-                                  children: List.generate(dots, (i) {
+                                  children: List.generate(dotsCount, (i) {
+                                    final booking = bookings[i];
+                                    final status = (booking['booking_status']
+                                            ?.toString()
+                                            .toLowerCase() ??
+                                        '');
+
+                                    Color dotColor =
+                                        status == 'confirmed'
+                                            ? Colors.blue
+                                            : Colors.yellow;
+
                                     return Container(
                                       width: 6,
                                       height: 6,
                                       margin: const EdgeInsets.symmetric(
                                           horizontal: 1.5),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.black,
+                                      decoration: BoxDecoration(
+                                        color: dotColor,
                                         shape: BoxShape.circle,
                                       ),
                                     );
@@ -312,57 +342,6 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
                 ),
               ),
             ),
-    );
-  }
-
-  Color _fillForDay(DateTime day) {
-    final bookings = _getBookingsForDay(day);
-    if (bookings.isEmpty) return Colors.transparent;
-
-    final confirmed = bookings
-        .where((b) => (b['booking_status']?.toString().toLowerCase() ?? '') == 'confirmed')
-        .length;
-
-    if (confirmed == bookings.length) {
-      return Colors.blue;
-    } else {
-      return Colors.orangeAccent;
-    }
-  }
-
-  Widget _buildDayCell(
-    DateTime day, {
-    required Color fill,
-    required Color border,
-    Color? textColor,
-    bool isToday = false,
-    bool isSelected = false,
-  }) {
-    final hasFill = fill != Colors.transparent;
-    final numberColor = textColor ?? (hasFill ? Colors.white : Colors.black);
-
-    return Center(
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: fill,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: border,
-            width: border == Colors.transparent ? 0 : 2,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            '${day.day}',
-            style: TextStyle(
-              color: numberColor,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

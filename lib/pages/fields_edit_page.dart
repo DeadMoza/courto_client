@@ -1,3 +1,4 @@
+import 'package:client_app/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -76,7 +77,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
     });
 
     final url =
-        Uri.parse("http://192.168.3.180:3000/api/clients/updateField/${widget.field["field_id"]}");
+        Uri.parse("${apiUrl}api/clients/updateField/${widget.field["field_id"]}");
 
     try {
       final res = await http.put(

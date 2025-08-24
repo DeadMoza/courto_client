@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../services/auth_service.dart';
 import '../pages/fields_page.dart';
+import '/constants.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -21,7 +22,7 @@ class _LoginPageState extends State<LoginPage> {
     FocusScope.of(context).unfocus();
     setState(() => loading = true);
 
-    final url = Uri.parse("http://192.168.3.180:3000/api/clients/login");
+    final url = Uri.parse("${apiUrl}api/clients/login");
 
     try {
       final res = await http.post(
