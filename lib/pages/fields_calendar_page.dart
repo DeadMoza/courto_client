@@ -81,7 +81,6 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
 
   Color _fillForDay(DateTime day) {
     final bookings = _getBookingsForDay(day);
-
     final relevant = bookings.where((b) {
       final status = (b['booking_status']?.toString().toLowerCase() ?? '');
       return status == 'confirmed' || status == 'pending';
@@ -147,6 +146,7 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
         backgroundColor: Colors.red,
         foregroundColor: Colors.white,
       ),
+      backgroundColor: Colors.red.shade50,
       body: loading
           ? const Center(child: CircularProgressIndicator(color: Colors.red))
           : SafeArea(
@@ -183,7 +183,8 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
                             );
 
                             if (result == true) {
-                              fetchBookings();
+                              setState(() => loading = true);
+                              await fetchBookings();
                             }
                           },
                           eventLoader: (_) => const [],

@@ -66,7 +66,7 @@ class _FieldsPageState extends State<FieldsPage> {
   String getFirstImageUrl(List<dynamic> images) {
     if (images.isEmpty) return '';
     String url = images[0].toString();
-    if (url.startsWith('/')) url = 'http://192.168.1.100:3000$url';
+    if (url.startsWith('/')) url = 'http://192.168.1.103:3000$url';
     return url;
   }
 
