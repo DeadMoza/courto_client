@@ -1,6 +1,5 @@
 import 'package:client_app/constants.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'booking_details_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -28,14 +27,14 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
   late List<Color?> backgrounds;
   late List<String?> bookedByList;
   late List<dynamic> currentBookings;
-  bool _needsRefresh = false; // Add this new flag
+  bool _needsRefresh = false;
 
   @override
   void initState() {
     super.initState();
     _updateBookingsAndSlots();
   }
-  
+
   @override
   void didUpdateWidget(covariant BookingSlotsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -66,11 +65,6 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
       slots.add(TimeSlot(start: start, end: end));
     }
   }
-
-  String formatTime(DateTime time) => DateFormat.jm().format(time);
-
-  String formatHM(DateTime dt) =>
-      "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
 
   void _trackBookings() {
     _generateSlots();
@@ -139,9 +133,10 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
   }
 
   Future<void> _refreshBookings() async {
-    final dateString = DateFormat('yyyy-MM-dd').format(widget.date);
+    final dateString = widget.date.toIso8601String().split('T')[0];
     final response = await http.get(
-      Uri.parse("${apiUrl}api/clients/getfieldBookings/${widget.field['field_id']}/$dateString"),
+      Uri.parse(
+          "${apiUrl}api/clients/getfieldBookings/${widget.field['field_id']}/$dateString"),
       headers: {'Authorization': 'Bearer ${widget.token}'},
     );
 
@@ -164,8 +159,8 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
       body: jsonEncode({
         'field_id': widget.field['field_id'],
         'booking_date': slot.start.toIso8601String().split('T')[0],
-        'start_time': formatHM(slot.start),
-        'end_time': formatHM(slot.end),
+        'start_time': AppFormat.formatHM(slot.start), // 24h format for API
+        'end_time': AppFormat.formatHM(slot.end),
       }),
     );
 
@@ -187,8 +182,8 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
       ..body = jsonEncode({
         "field_id": widget.field['field_id'],
         "booking_date": slot.start.toIso8601String().split('T')[0],
-        "start_time": formatHM(slot.start),
-        "end_time": formatHM(slot.end),
+        "start_time": AppFormat.formatHM(slot.start),
+        "end_time": AppFormat.formatHM(slot.end),
       });
 
     final response = await request.send();
@@ -202,154 +197,151 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // We'll use PopScope to control what happens when the user presses the back button.
-    return PopScope(
-      canPop: false,
-      onPopInvoked: (bool didPop) {
-        if (didPop) return;
-        Navigator.pop(context, _needsRefresh);
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            "Booking Slots - ${DateFormat.yMd().format(widget.date)}",
-            style: const TextStyle(color: Colors.white),
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: WillPopScope(
+        onWillPop: () async {
+          Navigator.pop(context, _needsRefresh);
+          return false;
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(
+              "أوقات الحجز - ${AppFormat.formatDateArabic(widget.date)}",
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+            iconTheme: const IconThemeData(color: Colors.white),
           ),
-          backgroundColor: Colors.red,
-          iconTheme: const IconThemeData(color: Colors.white),
-        ),
-        backgroundColor: Colors.red.shade50,
-        body: ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: slots.length,
-          itemBuilder: (context, i) {
-            final slot = slots[i];
-            final booking = _findBookingForSlot(slot);
+          backgroundColor: Colors.red.shade50,
+          body: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: slots.length,
+            itemBuilder: (context, i) {
+              final slot = slots[i];
+              final booking = _findBookingForSlot(slot);
 
-            String status = booking?['booking_status'] ?? "free";
-            if (status == "cancelled") status = "free";
+              String status = booking?['booking_status'] ?? "free";
+              if (status == "cancelled") status = "free";
 
-            bool isBooked = status == "pending" || status == "confirmed";
-            bool isUnavailable = status == "unavailable";
-            String bookedBy = booking?['booking_user'] ?? "";
+              bool isBooked = status == "pending" || status == "confirmed";
+              bool isUnavailable = status == "unavailable";
+              String bookedBy = booking?['booking_user'] ?? "";
 
-            bool sameAsPrev =
-                i > 0 && bookedByList[i] != null && bookedByList[i] == bookedByList[i - 1];
-            bool sameAsNext = i < slots.length - 1 &&
-                bookedByList[i] != null &&
-                bookedByList[i] == bookedByList[i + 1];
+              bool sameAsPrev =
+                  i > 0 && bookedByList[i] != null && bookedByList[i] == bookedByList[i - 1];
+              bool sameAsNext = i < slots.length - 1 &&
+                  bookedByList[i] != null &&
+                  bookedByList[i] == bookedByList[i + 1];
 
-            BorderRadius radius;
-            if (sameAsPrev && sameAsNext) {
-              radius = BorderRadius.zero;
-            } else if (sameAsPrev && !sameAsNext) {
-              radius = const BorderRadius.only(
-                  bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12));
-            } else if (!sameAsPrev && sameAsNext) {
-              radius = const BorderRadius.only(
-                  topLeft: Radius.circular(12), topRight: Radius.circular(12));
-            } else {
-              radius = BorderRadius.circular(12);
-            }
+              BorderRadius radius;
+              if (sameAsPrev && sameAsNext) {
+                radius = BorderRadius.zero;
+              } else if (sameAsPrev && !sameAsNext) {
+                radius = const BorderRadius.only(
+                    bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12));
+              } else if (!sameAsPrev && sameAsNext) {
+                radius = const BorderRadius.only(
+                    topLeft: Radius.circular(12), topRight: Radius.circular(12));
+              } else {
+                radius = BorderRadius.circular(12);
+              }
 
-            return Container(
-              margin: EdgeInsets.only(bottom: sameAsNext ? 0 : 6),
-              decoration: BoxDecoration(
-                color: backgrounds[i] ?? Colors.white,
-                borderRadius: radius,
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                title: Center(
-                  child: Text(
-                    "${formatTime(slot.start)} - ${formatTime(slot.end)}",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
+              return Container(
+                margin: EdgeInsets.only(bottom: sameAsNext ? 0 : 6),
+                decoration: BoxDecoration(
+                  color: backgrounds[i] ?? Colors.white,
+                  borderRadius: radius,
                 ),
-                subtitle: isBooked && !sameAsPrev
-                    ? Center(child: Text("Booked by $bookedBy"))
-                    : null,
-                onTap: () async {
-                  if (status == "free") {
-                    bool? mark = await showDialog(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        title: const Text("Mark as unavailable?"),
-                        actions: [
-                          TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text("No")),
-                          TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text("Yes")),
-                        ],
-                      ),
-                    );
-                    if (mark == true) {
-                      await _markUnavailable(slot);
-                    }
-                  } else if (isUnavailable) {
-                    bool? mark = await showDialog(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        title: const Text("Mark as available?"),
-                        actions: [
-                          TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text("No")),
-                          TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text("Yes")),
-                        ],
-                      ),
-                    );
-                    if (mark == true) {
-                      await _markAvailable(slot);
-                    }
-                  } else {
-                    final bookingDate = DateTime.parse(booking!['booking_date']);
-                    final startParts = (booking['start_time'] as String).split(':');
-                    final endParts = (booking['end_time'] as String).split(':');
-
-                    final bookingStart = DateTime(
-                      bookingDate.year,
-                      bookingDate.month,
-                      bookingDate.day,
-                      int.parse(startParts[0]),
-                      int.parse(startParts[1]),
-                    );
-                    final bookingEnd = DateTime(
-                      bookingDate.year,
-                      bookingDate.month,
-                      bookingDate.day,
-                      int.parse(endParts[0]),
-                      int.parse(endParts[1]),
-                    );
-
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => BookingDetailsPage(
-                          booking: booking,
-                          start: bookingStart,
-                          end: bookingEnd,
-                          field: widget.field,
-                          token: widget.token,
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                  title: Center(
+                    child: Text(
+                      "${AppFormat.formatTime(slot.start)} - ${AppFormat.formatTime(slot.end)}",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  subtitle: isBooked && !sameAsPrev
+                      ? Center(child: Text("محجوز من قبل $bookedBy"))
+                      : null,
+                  onTap: () async {
+                    if (status == "free") {
+                      bool? mark = await showDialog(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text("تحديد كغير متاح؟"),
+                          actions: [
+                            TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text("لا")),
+                            TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text("نعم")),
+                          ],
                         ),
-                      ),
-                    );
-                    // If a change was made in BookingDetailsPage, set the flag
-                    if (result == true) {
-                      setState(() {
-                        _needsRefresh = true;
-                      });
-                      await _refreshBookings();
+                      );
+                      if (mark == true) await _markUnavailable(slot);
+                    } else if (isUnavailable) {
+                      bool? mark = await showDialog(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text("تحديد كمتاح؟"),
+                          actions: [
+                            TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text("لا")),
+                            TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text("نعم")),
+                          ],
+                        ),
+                      );
+                      if (mark == true) await _markAvailable(slot);
+                    } else {
+                      final bookingDate = DateTime.parse(booking!['booking_date']);
+                      final startParts = (booking['start_time'] as String).split(':');
+                      final endParts = (booking['end_time'] as String).split(':');
+
+                      final bookingStart = DateTime(
+                        bookingDate.year,
+                        bookingDate.month,
+                        bookingDate.day,
+                        int.parse(startParts[0]),
+                        int.parse(startParts[1]),
+                      );
+                      final bookingEnd = DateTime(
+                        bookingDate.year,
+                        bookingDate.month,
+                        bookingDate.day,
+                        int.parse(endParts[0]),
+                        int.parse(endParts[1]),
+                      );
+
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BookingDetailsPage(
+                            booking: booking,
+                            start: bookingStart,
+                            end: bookingEnd,
+                            field: widget.field,
+                            token: widget.token,
+                          ),
+                        ),
+                      );
+
+                      if (result == true) {
+                        setState(() {
+                          _needsRefresh = true;
+                        });
+                        await _refreshBookings();
+                      }
                     }
-                  }
-                },
-              ),
-            );
-          },
+                  },
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

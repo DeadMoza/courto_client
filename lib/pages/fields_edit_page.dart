@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
-
+import 'dart:ui' as ui;
 class FieldsEditPage extends StatefulWidget {
   final Map<String, dynamic> field;
   final String? token;
+
   const FieldsEditPage({super.key, required this.field, this.token});
 
   @override
@@ -26,12 +27,9 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
   @override
   void initState() {
     super.initState();
-    priceController =
-        TextEditingController(text: widget.field["field_price"]?.toString() ?? "");
-    contactController =
-        TextEditingController(text: widget.field["field_contact_number"] ?? "");
-    descriptionController =
-        TextEditingController(text: widget.field["field_description"] ?? "");
+    priceController = TextEditingController(text: widget.field["field_price"]?.toString() ?? "");
+    contactController = TextEditingController(text: widget.field["field_contact_number"] ?? "");
+    descriptionController = TextEditingController(text: widget.field["field_description"] ?? "");
     isAvailable = widget.field["field_is_available"] ?? true;
 
     openTime = _parseTime(widget.field["field_open_time"]);
@@ -53,8 +51,11 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
     );
     if (picked != null) {
       setState(() {
-        if (isOpen) openTime = picked;
-        else closeTime = picked;
+        if (isOpen) {
+          openTime = picked;
+        } else {
+          closeTime = picked;
+        }
       });
     }
   }
@@ -63,21 +64,40 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
     if (time == null) return '';
     final now = DateTime.now();
     final dt = DateTime(now.year, now.month, now.day, time.hour, time.minute);
-    return DateFormat.jm().format(dt); // hh:mm AM/PM
+    return DateFormat('HH:mm').format(dt);
   }
 
   String _formatTimeForBackend(TimeOfDay? time) {
     if (time == null) return '';
-    return '${time.hour.toString().padLeft(2,'0')}:${time.minute.toString().padLeft(2,'0')}';
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  }
+
+  bool _isValidTimeDifference() {
+    if (openTime == null || closeTime == null) return true;
+
+    final now = DateTime.now();
+    final openDt = DateTime(now.year, now.month, now.day, openTime!.hour, openTime!.minute);
+    var closeDt = DateTime(now.year, now.month, now.day, closeTime!.hour, closeTime!.minute);
+
+    if (closeDt.isBefore(openDt)) {
+      closeDt = closeDt.add(const Duration(days: 1));
+    }
+
+    final difference = closeDt.difference(openDt).inHours;
+    return difference >= 4;
   }
 
   Future<void> saveField() async {
+    if (!_isValidTimeDifference()) {
+      _showError("يجب أن يكون الفرق بين وقت الفتح والإغلاق 4 ساعات على الأقل");
+      return;
+    }
+
     setState(() {
       loading = true;
     });
 
-    final url =
-        Uri.parse("${apiUrl}api/clients/updateField/${widget.field["field_id"]}");
+    final url = Uri.parse("${apiUrl}api/clients/updateField/${widget.field["field_id"]}");
 
     try {
       final res = await http.put(
@@ -100,23 +120,28 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
 
       if (res.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Field updated successfully"), backgroundColor: Colors.red));
+          const SnackBar(
+            content: Text("تم تحديث بيانات الملعب بنجاح"),
+            backgroundColor: Colors.green,
+          ),
+        );
         Navigator.pop(context, true);
       } else {
         final data = json.decode(res.body);
-        _showError(data["error"] ?? "Failed to update field");
+        _showError(data["error"] ?? "فشل تحديث بيانات الملعب");
       }
     } catch (e) {
       setState(() {
         loading = false;
       });
-      _showError("Network error: $e");
+      _showError("خطأ في الاتصال: $e");
     }
   }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.red));
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
   }
 
   InputDecoration _inputDecoration(String label, {IconData? icon}) {
@@ -143,101 +168,99 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.red[50],
-      appBar: AppBar(
-        title: Text("Edit ${widget.field["field_name"]}", style: TextStyle(color: Colors.white),),
-        backgroundColor: Colors.red,
-      ),
-      body: loading
-          ? const Center(child: CircularProgressIndicator(color: Colors.red))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // Availability
-                  CheckboxListTile(
-                    title: const Text("Is available?"),
-                    value: isAvailable,
-                    activeColor: Colors.red,
-                    onChanged: (val) => setState(() => isAvailable = val ?? true),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Price
-                  TextField(
-                    controller: priceController,
-                    keyboardType: TextInputType.number,
-                    decoration: _inputDecoration("Price", icon: Icons.attach_money_rounded),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Open/Close Times in a row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => _pickTime(isOpen: true),
-                          child: AbsorbPointer(
-                            child: TextField(
-                              decoration: _inputDecoration("Open Time", icon: Icons.access_time),
-                              controller: TextEditingController(text: _formatTimeOfDay(openTime)),
+    return Directionality(
+      textDirection: ui.TextDirection.rtl, 
+      child: Scaffold(
+        backgroundColor: Colors.red[50],
+        appBar: AppBar(
+          title: Text(
+            "تعديل ${widget.field["field_name"]}",
+            style: const TextStyle(color: Colors.white),
+            
+          ),
+          iconTheme: const IconThemeData(color: Colors.white),
+          backgroundColor: Colors.red,
+        ),
+        body: loading
+            ? const Center(child: CircularProgressIndicator(color: Colors.red))
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    CheckboxListTile(
+                      title: const Text("متاح للحجز؟"),
+                      value: isAvailable,
+                      activeColor: Colors.red,
+                      onChanged: (val) => setState(() => isAvailable = val ?? true),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: priceController,
+                      keyboardType: TextInputType.number,
+                      decoration: _inputDecoration("السعر", icon: Icons.attach_money_rounded),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => _pickTime(isOpen: true),
+                            child: AbsorbPointer(
+                              child: TextField(
+                                decoration: _inputDecoration("وقت الفتح", icon: Icons.access_time),
+                                controller: TextEditingController(text: _formatTimeOfDay(openTime)),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => _pickTime(isOpen: false),
-                          child: AbsorbPointer(
-                            child: TextField(
-                              decoration: _inputDecoration("Close Time", icon: Icons.lock_clock_rounded),
-                              controller: TextEditingController(text: _formatTimeOfDay(closeTime)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => _pickTime(isOpen: false),
+                            child: AbsorbPointer(
+                              child: TextField(
+                                decoration: _inputDecoration("وقت الإغلاق", icon: Icons.lock_clock_rounded),
+                                controller: TextEditingController(text: _formatTimeOfDay(closeTime)),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Contact
-                  TextField(
-                    controller: contactController,
-                    keyboardType: TextInputType.phone,
-                    decoration: _inputDecoration("Field Contact Number", icon: Icons.phone),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Description
-                  TextField(
-                    controller: descriptionController,
-                    maxLines: 3,
-                    decoration: _inputDecoration("Description", icon: Icons.description),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Save Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: saveField,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Text(
-                        "Save Changes",
-                        style: TextStyle(fontSize: 16, color: Colors.white),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: contactController,
+                      keyboardType: TextInputType.phone,
+                      decoration: _inputDecoration("رقم التواصل", icon: Icons.phone),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: descriptionController,
+                      maxLines: 3,
+                      decoration: _inputDecoration("الوصف", icon: Icons.description),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: saveField,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          "حفظ التغييرات",
+                          style: TextStyle(fontSize: 16, color: Colors.white),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 }

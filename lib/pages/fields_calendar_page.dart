@@ -4,7 +4,8 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'bookings_slots_page.dart';
-import 'package:intl/intl.dart';
+import 'dart:ui' as ui;
+
 
 class FieldsCalendarPage extends StatefulWidget {
   final Map<String, dynamic> field;
@@ -73,7 +74,7 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
     try {
       final parts = time.split(":");
       final dt = DateTime(0, 1, 1, int.parse(parts[0]), int.parse(parts[1]));
-      return DateFormat.jm().format(dt);
+      return AppFormat.formatTime(dt); // صيغة عربية أو حسب AppFormat
     } catch (e) {
       return time;
     }
@@ -93,9 +94,9 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
         .length;
 
     if (confirmed == relevant.length) {
-      return Colors.blue; // all confirmed
+      return Colors.blue; // مؤكد بالكامل
     } else {
-      return Colors.orangeAccent; // mixed or pending
+      return Colors.orangeAccent; // جزئي أو بانتظار
     }
   }
 
@@ -140,209 +141,218 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
     final today = DateTime.now();
     final lastDay = today.add(const Duration(days: 365));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.field['field_name']),
-        backgroundColor: Colors.red,
-        foregroundColor: Colors.white,
-      ),
-      backgroundColor: Colors.red.shade50,
-      body: loading
-          ? const Center(child: CircularProgressIndicator(color: Colors.red))
-          : SafeArea(
-              child: NestedScrollView(
-                headerSliverBuilder:
-                    (BuildContext context, bool innerBoxIsScrolled) {
-                  return <Widget>[
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: TableCalendar(
-                          firstDay: today,
-                          lastDay: lastDay,
-                          focusedDay: focusedDay,
-                          rowHeight: 52,
-                          selectedDayPredicate: (day) =>
-                              isSameDay(selectedDay, day),
-                          onDaySelected: (selected, focused) async {
-                            setState(() {
-                              selectedDay = selected;
-                              focusedDay = focused;
-                            });
+    return Directionality(
+      textDirection: ui.TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text("تقويم ${widget.field['field_name']}"),
+          backgroundColor: Colors.red,
+          foregroundColor: Colors.white,
+        ),
+        backgroundColor: Colors.red.shade50,
+        body: loading
+            ? const Center(child: CircularProgressIndicator(color: Colors.red))
+            : SafeArea(
+                child: NestedScrollView(
+                  headerSliverBuilder:
+                      (BuildContext context, bool innerBoxIsScrolled) {
+                    return <Widget>[
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: TableCalendar(
+                            firstDay: today,
+                            lastDay: lastDay,
+                            focusedDay: focusedDay,
+                            rowHeight: 52,
+                            selectedDayPredicate: (day) =>
+                                isSameDay(selectedDay, day),
+                            onDaySelected: (selected, focused) async {
+                              setState(() {
+                                selectedDay = selected;
+                                focusedDay = focused;
+                              });
 
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => BookingSlotsPage(
-                                  field: widget.field,
-                                  date: selected,
-                                  token: widget.token,
-                                  bookings: _getBookingsForDay(selected),
-                                ),
-                              ),
-                            );
-
-                            if (result == true) {
-                              setState(() => loading = true);
-                              await fetchBookings();
-                            }
-                          },
-                          eventLoader: (_) => const [],
-                          calendarStyle: const CalendarStyle(
-                            cellPadding: EdgeInsets.zero,
-                            cellMargin: EdgeInsets.zero,
-                            todayDecoration: BoxDecoration(),
-                            selectedDecoration: BoxDecoration(),
-                          ),
-                          calendarBuilders: CalendarBuilders(
-                            defaultBuilder: (context, day, _) {
-                              final fill = _fillForDay(day);
-                              return _buildDayCell(
-                                day,
-                                fill: fill,
-                                border: Colors.transparent,
-                                isToday: isSameDay(day, DateTime.now()),
-                                isSelected: isSameDay(day, selectedDay),
-                              );
-                            },
-                            outsideBuilder: (context, day, _) {
-                              final fill = _fillForDay(day);
-                              return _buildDayCell(
-                                day,
-                                fill: fill.withOpacity(0.25),
-                                border: Colors.transparent,
-                                textColor: Colors.black45,
-                                isToday: isSameDay(day, DateTime.now()),
-                                isSelected: isSameDay(day, selectedDay),
-                              );
-                            },
-                            todayBuilder: (context, day, _) {
-                              final fill = _fillForDay(day);
-                              return _buildDayCell(
-                                day,
-                                fill: fill,
-                                border: Colors.grey,
-                                isToday: true,
-                                isSelected: isSameDay(day, selectedDay),
-                              );
-                            },
-                            selectedBuilder: (context, day, _) {
-                              final fill = _fillForDay(day);
-                              return _buildDayCell(
-                                day,
-                                fill: fill,
-                                border: Colors.black,
-                                isSelected: true,
-                                isToday: isSameDay(day, DateTime.now()),
-                              );
-                            },
-                            markerBuilder: (context, day, _) {
-                              final bookings = _getBookingsForDay(day)
-                                  .where((b) {
-                                final status = (b['booking_status']
-                                        ?.toString()
-                                        .toLowerCase() ??
-                                    '');
-                                return status == 'confirmed' ||
-                                    status == 'pending';
-                              }).toList();
-
-                              if (bookings.isEmpty) return const SizedBox.shrink();
-
-                              const maxDots = 6;
-                              final dotsCount = bookings.length > maxDots
-                                  ? maxDots
-                                  : bookings.length;
-
-                              return Positioned(
-                                bottom: 4,
-                                left: 0,
-                                right: 0,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: List.generate(dotsCount, (i) {
-                                    final booking = bookings[i];
-                                    final status = (booking['booking_status']
-                                            ?.toString()
-                                            .toLowerCase() ??
-                                        '');
-
-                                    Color dotColor =
-                                        status == 'confirmed'
-                                            ? Colors.blue
-                                            : Colors.yellow;
-
-                                    return Container(
-                                      width: 6,
-                                      height: 6,
-                                      margin: const EdgeInsets.symmetric(
-                                          horizontal: 1.5),
-                                      decoration: BoxDecoration(
-                                        color: dotColor,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    );
-                                  }),
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => BookingSlotsPage(
+                                    field: widget.field,
+                                    date: selected,
+                                    token: widget.token,
+                                    bookings: _getBookingsForDay(selected),
+                                  ),
                                 ),
                               );
+
+                              if (result == true) {
+                                setState(() => loading = true);
+                                await fetchBookings();
+                              }
                             },
+                            eventLoader: (_) => const [],
+                            calendarStyle: const CalendarStyle(
+                              cellPadding: EdgeInsets.zero,
+                              cellMargin: EdgeInsets.zero,
+                              todayDecoration: BoxDecoration(),
+                              selectedDecoration: BoxDecoration(),
+                            ),
+                            calendarBuilders: CalendarBuilders(
+                              defaultBuilder: (context, day, _) {
+                                final fill = _fillForDay(day);
+                                return _buildDayCell(
+                                  day,
+                                  fill: fill,
+                                  border: Colors.transparent,
+                                  isToday: isSameDay(day, DateTime.now()),
+                                  isSelected: isSameDay(day, selectedDay),
+                                );
+                              },
+                              outsideBuilder: (context, day, _) {
+                                final fill = _fillForDay(day);
+                                return _buildDayCell(
+                                  day,
+                                  fill: fill.withOpacity(0.25),
+                                  border: Colors.transparent,
+                                  textColor: Colors.black45,
+                                  isToday: isSameDay(day, DateTime.now()),
+                                  isSelected: isSameDay(day, selectedDay),
+                                );
+                              },
+                              todayBuilder: (context, day, _) {
+                                final fill = _fillForDay(day);
+                                return _buildDayCell(
+                                  day,
+                                  fill: fill,
+                                  border: Colors.grey,
+                                  isToday: true,
+                                  isSelected: isSameDay(day, selectedDay),
+                                );
+                              },
+                              selectedBuilder: (context, day, _) {
+                                final fill = _fillForDay(day);
+                                return _buildDayCell(
+                                  day,
+                                  fill: fill,
+                                  border: Colors.black,
+                                  isSelected: true,
+                                  isToday: isSameDay(day, selectedDay),
+                                );
+                              },
+                              markerBuilder: (context, day, _) {
+                                final bookings = _getBookingsForDay(day)
+                                    .where((b) {
+                                  final status = (b['booking_status']
+                                          ?.toString()
+                                          .toLowerCase() ??
+                                      '');
+                                  return status == 'confirmed' ||
+                                      status == 'pending';
+                                }).toList();
+
+                                if (bookings.isEmpty) return const SizedBox.shrink();
+
+                                const maxDots = 6;
+                                final dotsCount = bookings.length > maxDots
+                                    ? maxDots
+                                    : bookings.length;
+
+                                return Positioned(
+                                  bottom: 4,
+                                  left: 0,
+                                  right: 0,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: List.generate(dotsCount, (i) {
+                                      final booking = bookings[i];
+                                      final status = (booking['booking_status']
+                                              ?.toString()
+                                              .toLowerCase() ??
+                                          '');
+
+                                      Color dotColor =
+                                          status == 'confirmed'
+                                              ? Colors.blue
+                                              : Colors.orangeAccent;
+
+                                      return Container(
+                                        width: 6,
+                                        height: 6,
+                                        margin: const EdgeInsets.symmetric(
+                                            horizontal: 1.5),
+                                        decoration: BoxDecoration(
+                                          color: dotColor,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      );
+                                    }),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ];
-                },
-                body: ListView(
-                  children: selectedDay == null
-                      ? []
-                      : _getBookingsForDay(selectedDay!).map((booking) {
-                          final bookingTime =
-                              "${formatTime(booking['start_time'])} - ${formatTime(booking['end_time'])}";
-                          final user = booking['booking_user'] ?? '';
-                          final status = booking['booking_status'] ?? '';
+                    ];
+                  },
+                  body: ListView(
+                    children: selectedDay == null
+                        ? [
+                            const Center(
+                                child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text("اختر يومًا لرؤية الحجوزات",
+                                  style: TextStyle(fontSize: 16)),
+                            ))
+                          ]
+                        : _getBookingsForDay(selectedDay!).map((booking) {
+                            final bookingTime =
+                                "${formatTime(booking['start_time'])} - ${formatTime(booking['end_time'])}";
+                            final user = booking['booking_user'] ?? '';
+                            final status = booking['booking_status'] ?? '';
 
-                          return Container(
-                            margin: const EdgeInsets.symmetric(
-                                vertical: 4, horizontal: 16),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Time: $bookingTime",
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  "User: $user",
-                                  style: const TextStyle(color: Colors.black87),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  "Status: $status",
-                                  style:
-                                      const TextStyle(color: Colors.black54),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
+                            return Container(
+                              margin: const EdgeInsets.symmetric(
+                                  vertical: 4, horizontal: 16),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "الوقت: $bookingTime",
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "المستخدم: $user",
+                                    style: const TextStyle(color: Colors.black87),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    "الحالة: ${AppFormat.translateStatus(status)}",
+                                    style: const TextStyle(color: Colors.black54),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 }

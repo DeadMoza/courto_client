@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'pages/fields_page.dart';
 import 'pages/login_page.dart';
 import 'services/auth_service.dart';
@@ -6,6 +7,7 @@ import 'services/auth_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AuthService.loadSession(); // wait for session before launching
+
   runApp(const MyApp());
 }
 

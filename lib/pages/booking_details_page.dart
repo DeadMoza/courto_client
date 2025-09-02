@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:client_app/constants.dart';
 
@@ -20,8 +19,6 @@ class BookingDetailsPage extends StatelessWidget {
     this.token,
     this.isManualBlocked = false,
   });
-
-  String formatTime(DateTime time) => DateFormat.jm().format(time);
 
   Future<bool> _acceptBooking() async {
     if (booking == null) return false;
@@ -68,258 +65,272 @@ class BookingDetailsPage extends StatelessWidget {
     final status =
         booking?['booking_status'] ?? (isManualBlocked ? "unavailable" : "free");
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Booking Details", style: TextStyle(color: Colors.white),),
-        backgroundColor: Colors.red,
-      ),
-      backgroundColor: Colors.red.shade50,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              // First Card: Field, Status + ID, User Info
-              Card(
-                color: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Row 1: Field Name
-                      Text(
-                        field['field_name'] ?? "Unknown Field",
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+    return Directionality(
+      textDirection: TextDirection.rtl, // ← اجعل الصفحة من اليمين لليسار
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            "تفاصيل الحجز",
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+          iconTheme: const IconThemeData(color: Colors.white),
+        ),
+        backgroundColor: Colors.red.shade50,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                // البطاقة الأولى: معلومات الملعب والمستخدم والحالة
+                Card(
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  elevation: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // اسم الملعب
+                        Text(
+                          field['field_name'] ?? "ملعب غير معروف",
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 12),
 
-                      const SizedBox(height: 12),
-
-                      // User Info
-                      if (booking != null) ...[
-                        Row(
-                          children: [
-                            const Icon(Icons.person, color: Colors.red),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                booking!['booking_user'] ?? "Unknown User",
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(Icons.phone, color: Colors.red),
-                            const SizedBox(width: 8),
-                            SelectableText(
-                              booking!['booking_user_phone_number'] ?? "No Phone",
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      const SizedBox(height: 12),
-                      // Row 2: Status + Booking ID
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
+                        // معلومات المستخدم
+                        if (booking != null) ...[
                           Row(
                             children: [
-                              Icon(_statusIcon(status), color: _statusColor(status)),
+                              const Icon(Icons.person, color: Colors.red),
                               const SizedBox(width: 8),
-                              Text(
-                                status.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: _statusColor(status),
+                              Expanded(
+                                child: Text(
+                                  booking!['booking_user'] ?? "مستخدم غير معروف",
+                                  style: const TextStyle(fontSize: 16),
                                 ),
                               ),
                             ],
                           ),
-                          if (booking != null)
-                            Text(
-                              "ID: ${booking!['booking_id']}",
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                        ],
-                      ),
-
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Second Card: Time, Date, Price
-              Card(
-                color: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.access_time, color: Colors.red, size: 32),
-                      const SizedBox(height: 8),
-                      Text(
-                        "${formatTime(start)} - ${formatTime(end)}",
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        DateFormat.yMMMMd().format(start),
-                        style: const TextStyle(fontSize: 16, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 20),
-                      Align(
-                        alignment: Alignment.bottomRight,
-                        child: Text(
-                          "Price: ${booking?['booking_total_price'] ?? "--"} LYD",
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red,
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.phone, color: Colors.red),
+                              const SizedBox(width: 8),
+                              SelectableText(
+                                booking!['booking_user_phone_number'] ??
+                                    "بدون رقم هاتف",
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ],
                           ),
+                          const SizedBox(height: 12),
+                        ],
+
+                        // الحالة وID الحجز
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(_statusIcon(status), color: _statusColor(status)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  AppFormat.translateStatus(status),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: _statusColor(status),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (booking != null)
+                              Text(
+                                "رمز الحجز: ${booking!['booking_id']}",
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Third Card: Notes
-              if (booking?['booking_notes'] != null &&
-                  booking!['booking_notes'].toString().trim().isNotEmpty)
+                // البطاقة الثانية: الوقت، التاريخ، السعر
                 Card(
                   color: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   elevation: 4,
                   child: Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Icon(Icons.note, color: Colors.red, size: 28),
-                        const SizedBox(height: 10),
-                        const Text(
-                          "Notes",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red,
-                          ),
-                        ),
+                        const Icon(Icons.access_time, color: Colors.red, size: 32),
                         const SizedBox(height: 8),
                         Text(
-                          booking!['booking_notes'],
-                          style: const TextStyle(fontSize: 16),
+                          "${AppFormat.formatTime(start)} - ${AppFormat.formatTime(end)}",
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          AppFormat.formatDateArabic(start),
+                          style: const TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 20),
+                        Align(
+                          alignment: Alignment.bottomRight,
+                          child: Text(
+                            "السعر: ${booking?['booking_total_price'] ?? "--"} دينار",
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red,
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Action buttons
-              if (status == "pending")
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(Icons.check, color: Colors.white),
-                        label: const Text("Accept", style: TextStyle(color: Colors.white)),
-                        onPressed: () async {
-                          bool? confirm = await showDialog(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text("Accept this booking?"),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: const Text("No"),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text("Yes"),
-                                ),
-                              ],
+                // البطاقة الثالثة: الملاحظات
+                if (booking?['booking_notes'] != null &&
+                    booking!['booking_notes'].toString().trim().isNotEmpty)
+                  Card(
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                    elevation: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.note, color: Colors.red, size: 28),
+                          const SizedBox(height: 10),
+                          const Text(
+                            "ملاحظات",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red,
                             ),
-                          );
-                          if (confirm == true) {
-                            final success = await _acceptBooking();
-                            if (success) Navigator.pop(context, true);
-                          }
-                        },
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            booking!['booking_notes'],
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(Icons.close, color: Colors.red),
-                        label: const Text("Reject"),
-                        onPressed: () async {
-                          bool? confirm = await showDialog(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text("Reject this booking?"),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: const Text("No"),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text("Yes"),
-                                ),
-                              ],
+                  ),
+
+                const SizedBox(height: 20),
+
+                // أزرار الإجراء
+                if (status == "pending")
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          );
-                          if (confirm == true) {
-                            final success = await _rejectBooking();
-                            if (success) Navigator.pop(context, true);
-                          }
-                        },
+                          ),
+                          icon: const Icon(Icons.check, color: Colors.white),
+                          label: const Text(
+                            "قبول",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          onPressed: () async {
+                            bool? confirm = await showDialog(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: const Text("هل تريد قبول هذا الحجز؟"),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text("لا"),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text("نعم"),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              final success = await _acceptBooking();
+                              if (success) Navigator.pop(context, true);
+                            }
+                          },
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-            ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          icon: const Icon(Icons.close, color: Colors.red),
+                          label: const Text("رفض"),
+                          onPressed: () async {
+                            bool? confirm = await showDialog(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: const Text("هل تريد رفض هذا الحجز؟"),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text("لا"),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text("نعم"),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              final success = await _rejectBooking();
+                              if (success) Navigator.pop(context, true);
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+
 }
