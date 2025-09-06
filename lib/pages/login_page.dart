@@ -39,7 +39,6 @@ class _LoginPageState extends State<LoginPage> {
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
 
-        // ✅ Save session using AuthService
         await AuthService.saveSession(data["client"], data["token"]);
 
         if (!mounted) return;
@@ -48,7 +47,7 @@ class _LoginPageState extends State<LoginPage> {
           MaterialPageRoute(builder: (_) => const FieldsPage()),
         );
       } else {
-        String message = "Login failed";
+        String message = "فشل تسجيل الدخول";
         try {
           final data = json.decode(res.body);
           if (data["error"] != null) message = data["error"];
@@ -57,14 +56,14 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (_) {
       setState(() => loading = false);
-      _showError("Network error, please check your connection");
+      _showError("خطأ في الاتصال بالشبكة، يرجى التحقق من الاتصال بالإنترنت");
     }
   }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message, textDirection: TextDirection.rtl),
         backgroundColor: Colors.red,
       ),
     );
@@ -72,109 +71,112 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.red[50],
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.sports_soccer, size: 90, color: Colors.red),
-                const SizedBox(height: 12),
-                const Text(
-                  "Football Field Manager",
-                  style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red),
-                ),
-                const SizedBox(height: 32),
-
-                // Phone field
-                TextField(
-                  controller: phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: "Phone Number",
-                    prefixIcon: const Icon(Icons.phone, color: Colors.red),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
+    return Directionality( // ✅ Make entire page RTL
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: Colors.red[50],
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.sports_soccer, size: 90, color: Colors.red),
+                  const SizedBox(height: 12),
+                  const Text(
+                    "مدير كورتو",
+                    style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 32),
 
-                // Password field with toggle
-                TextField(
-                  controller: passController,
-                  obscureText: !showPassword,
-                  decoration: InputDecoration(
-                    labelText: "Password",
-                    prefixIcon: const Icon(Icons.lock, color: Colors.red),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        showPassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        color: Colors.grey,
-                      ),
-                      onPressed: () {
-                        setState(() => showPassword = !showPassword);
-                      },
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Login button
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: loading ? null : login,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      disabledBackgroundColor: Colors.red[300],
-                      shape: RoundedRectangleBorder(
+                  // Phone field
+                  TextField(
+                    controller: phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: "رقم الهاتف",
+                      prefixIcon: const Icon(Icons.phone, color: Colors.red),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
                       ),
                     ),
-                    child: loading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2.5,
-                            ),
-                          )
-                        : const Text(
-                            "Login",
-                            style: TextStyle(fontSize: 16, color: Colors.white),
-                          ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                TextButton(
-                  onPressed: () {},
-                  child: const Text(
-                    "Forgot Password?",
-                    style: TextStyle(color: Colors.red),
+                  // Password field with toggle
+                  TextField(
+                    controller: passController,
+                    obscureText: !showPassword,
+                    decoration: InputDecoration(
+                      labelText: "كلمة المرور",
+                      prefixIcon: const Icon(Icons.lock, color: Colors.red),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          showPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () {
+                          setState(() => showPassword = !showPassword);
+                        },
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 24),
+
+                  // Login button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: loading ? null : login,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        disabledBackgroundColor: Colors.red[300],
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: loading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : const Text(
+                              "تسجيل الدخول",
+                              style: TextStyle(fontSize: 16, color: Colors.white),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextButton(
+                    onPressed: () {},
+                    child: const Text(
+                      "هل نسيت كلمة المرور؟",
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

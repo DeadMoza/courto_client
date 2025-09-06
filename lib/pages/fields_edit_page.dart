@@ -2,8 +2,8 @@ import 'package:client_app/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:intl/intl.dart';
 import 'dart:ui' as ui;
+
 class FieldsEditPage extends StatefulWidget {
   final Map<String, dynamic> field;
   final String? token;
@@ -48,13 +48,22 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
     final picked = await showTimePicker(
       context: context,
       initialTime: initial,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
     );
+
     if (picked != null) {
+      // Force integer hours only
+      final hourOnly = TimeOfDay(hour: picked.hour, minute: 0);
       setState(() {
         if (isOpen) {
-          openTime = picked;
+          openTime = hourOnly;
         } else {
-          closeTime = picked;
+          closeTime = hourOnly;
         }
       });
     }
@@ -62,14 +71,12 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
 
   String _formatTimeOfDay(TimeOfDay? time) {
     if (time == null) return '';
-    final now = DateTime.now();
-    final dt = DateTime(now.year, now.month, now.day, time.hour, time.minute);
-    return DateFormat('HH:mm').format(dt);
+    return '${time.hour.toString().padLeft(2, '0')}:00';
   }
 
   String _formatTimeForBackend(TimeOfDay? time) {
     if (time == null) return '';
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    return '${time.hour.toString().padLeft(2, '0')}:00';
   }
 
   bool _isValidTimeDifference() {
@@ -169,14 +176,13 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
   @override
   Widget build(BuildContext context) {
     return Directionality(
-      textDirection: ui.TextDirection.rtl, 
+      textDirection: ui.TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Colors.red[50],
         appBar: AppBar(
           title: Text(
             "تعديل ${widget.field["field_name"]}",
             style: const TextStyle(color: Colors.white),
-            
           ),
           iconTheme: const IconThemeData(color: Colors.white),
           backgroundColor: Colors.red,
@@ -188,9 +194,16 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
                 child: Column(
                   children: [
                     CheckboxListTile(
-                      title: const Text("متاح للحجز؟"),
+                      title: const Text(
+                        "متاح للحجز؟",
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red),
+                      ),
                       value: isAvailable,
                       activeColor: Colors.red,
+                      controlAffinity: ListTileControlAffinity.leading,
                       onChanged: (val) => setState(() => isAvailable = val ?? true),
                     ),
                     const SizedBox(height: 16),

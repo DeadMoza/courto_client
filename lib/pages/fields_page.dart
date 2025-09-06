@@ -66,12 +66,12 @@ class _FieldsPageState extends State<FieldsPage> {
 
   String getFirstImageUrl(List<dynamic> images) {
     if (images.isEmpty) return '';
-    String url = images[0].toString();
-    if (url.startsWith('/')) url = 'http://192.168.1.100:3000$url';
+    String url = images[0].toString();//////////////////////////////////////////////////////////////////////////////////////////
+    if (url.startsWith('/')) url = 'http://192.168.3.180:3000$url';
     return url;
   }
 
-  /// ✅ تعديل الوقت ليظهر HH:mm (24 ساعة بدون ثواني)
+  
   String formatTime(String timeStr) {
     try {
       final parts = timeStr.split(':');
@@ -89,7 +89,7 @@ class _FieldsPageState extends State<FieldsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality( // ✅ اتجاه RTL
+    return Directionality(
       textDirection: ui.TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Colors.red[50],
@@ -109,10 +109,10 @@ class _FieldsPageState extends State<FieldsPage> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(5),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.red.withOpacity(0.3),
@@ -124,7 +124,7 @@ class _FieldsPageState extends State<FieldsPage> {
                 child: Row(
                   children: [
                     const Icon(Icons.account_balance_wallet,
-                        color: Colors.red, size: 18),
+                        color: Colors.red, size: 24),
                     const SizedBox(width: 4),
                     Text(
                       AuthService.clientData?['wallet_balance']?.toString() ?? '0',
@@ -169,7 +169,7 @@ class _FieldsPageState extends State<FieldsPage> {
                             child: Container(
                               margin: const EdgeInsets.only(bottom: 14),
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(5),
                                 color: Colors.white,
                                 boxShadow: [
                                   BoxShadow(
@@ -185,7 +185,7 @@ class _FieldsPageState extends State<FieldsPage> {
                                   if (imageUrl.isNotEmpty)
                                     ClipRRect(
                                       borderRadius: const BorderRadius.vertical(
-                                          top: Radius.circular(12)),
+                                          top: Radius.circular(5)),
                                       child: Image.network(
                                         imageUrl,
                                         width: double.infinity,
@@ -255,10 +255,10 @@ class _FieldsPageState extends State<FieldsPage> {
                                               decoration: BoxDecoration(
                                                 color: Colors.red[50],
                                                 borderRadius:
-                                                    BorderRadius.circular(8),
+                                                    BorderRadius.circular(5),
                                               ),
                                               child: Text(
-                                                "${formatTime(field["field_open_time"] ?? '')} - ${formatTime(field["field_close_time"] ?? '')}",
+                                                "${AppFormat.formatArabicTime(field["field_open_time"] ?? '')} - ${AppFormat.formatArabicTime(field["field_close_time"] ?? '')}",
                                                 style: const TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w500,
@@ -312,7 +312,7 @@ class _FieldsPageState extends State<FieldsPage> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 28, vertical: 14),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(5)),
                   ),
                   child: const Text(
                     "تسجيل الدخول لعرض الملاعب",

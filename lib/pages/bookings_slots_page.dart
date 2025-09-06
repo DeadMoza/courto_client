@@ -239,12 +239,12 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
                 radius = BorderRadius.zero;
               } else if (sameAsPrev && !sameAsNext) {
                 radius = const BorderRadius.only(
-                    bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12));
+                    bottomLeft: Radius.circular(5), bottomRight: Radius.circular(5));
               } else if (!sameAsPrev && sameAsNext) {
                 radius = const BorderRadius.only(
-                    topLeft: Radius.circular(12), topRight: Radius.circular(12));
+                    topLeft: Radius.circular(5), topRight: Radius.circular(5));
               } else {
-                radius = BorderRadius.circular(12);
+                radius = BorderRadius.circular(5);
               }
 
               return Container(

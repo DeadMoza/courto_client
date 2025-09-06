@@ -74,7 +74,7 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
     try {
       final parts = time.split(":");
       final dt = DateTime(0, 1, 1, int.parse(parts[0]), int.parse(parts[1]));
-      return AppFormat.formatTime(dt); // صيغة عربية أو حسب AppFormat
+      return AppFormat.formatTime(dt); 
     } catch (e) {
       return time;
     }
@@ -94,9 +94,9 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
         .length;
 
     if (confirmed == relevant.length) {
-      return Colors.blue; // مؤكد بالكامل
+      return Colors.blue; 
     } else {
-      return Colors.orangeAccent; // جزئي أو بانتظار
+      return Colors.orangeAccent; 
     }
   }
 
@@ -139,7 +139,7 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
-    final lastDay = today.add(const Duration(days: 365));
+    final lastDay = today.add(const Duration(days: 120));
 
     return Directionality(
       textDirection: ui.TextDirection.rtl,
@@ -161,10 +161,15 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: TableCalendar(
+                            locale: 'ar',
                             firstDay: today,
                             lastDay: lastDay,
                             focusedDay: focusedDay,
                             rowHeight: 52,
+                            headerStyle: const HeaderStyle(
+                              formatButtonVisible: false,
+                              titleCentered: true
+                            ),
                             selectedDayPredicate: (day) =>
                                 isSameDay(selectedDay, day),
                             onDaySelected: (selected, focused) async {
@@ -172,7 +177,6 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
                                 selectedDay = selected;
                                 focusedDay = focused;
                               });
-
                               final result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -198,6 +202,15 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
                               selectedDecoration: BoxDecoration(),
                             ),
                             calendarBuilders: CalendarBuilders(
+                              headerTitleBuilder: (context, day) {
+                                final text = MaterialLocalizations.of(context).formatMonthYear(day);
+                                return Center(
+                                  child: Text(
+                                    AppFormat.toEnglishNumbers(text),
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                                );
+                              },
                               defaultBuilder: (context, day, _) {
                                 final fill = _fillForDay(day);
                                 return _buildDayCell(

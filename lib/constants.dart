@@ -1,6 +1,24 @@
-const String apiUrl = "http://192.168.1.100:3000/";
+const String apiUrl = "http://192.168.3.180:3000/";
 
 class AppFormat {
+
+    // convert api time string into datetime to pass to formatting function (formatTime)
+    static formatArabicTime(String timeStr) {
+    try {
+      final parts = timeStr.split(':');
+      if (parts.length < 2) return timeStr;
+
+      int hour = int.parse(parts[0]);
+      int minute = int.parse(parts[1]);
+
+      final dt = DateTime(0, 1, 1, hour, minute);
+      return formatTime(dt);
+    } catch (_) {
+      return timeStr;
+    }
+  }
+
+
   // تحويل الوقت إلى صيغة عربية (ص/م)
   static String formatTime(DateTime time) {
     int hour = time.hour;
@@ -40,4 +58,15 @@ class AppFormat {
         return "متاح";
     }
   }
+
+  static String toEnglishNumbers(String input) {
+  const arabicNums = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+  const englishNums = ['0','1','2','3','4','5','6','7','8','9'];
+
+  for (int i = 0; i < arabicNums.length; i++) {
+    input = input.replaceAll(arabicNums[i], englishNums[i]);
+  }
+  return input;
+}
+
 }
