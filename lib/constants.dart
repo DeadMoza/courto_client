@@ -1,4 +1,4 @@
-const String apiUrl = "http://192.168.3.180:3000/";
+const String apiUrl = "https://api.courto.ly/";
 
 class AppFormat {
 

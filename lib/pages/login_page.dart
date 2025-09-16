@@ -71,7 +71,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality( // ✅ Make entire page RTL
+    return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Colors.red[50],
@@ -82,14 +82,21 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.sports_soccer, size: 90, color: Colors.red),
-                  const SizedBox(height: 12),
+                  
+                  Image.asset(
+                    "assets/images/courto.png",
+                    width: 150,
+                    height: 150,
+                  ),
+                  const SizedBox(height: 6),
+
                   const Text(
                     "مدير كورتو",
                     style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.red),
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
+                    ),
                   ),
                   const SizedBox(height: 32),
 

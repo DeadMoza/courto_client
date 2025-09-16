@@ -67,7 +67,7 @@ class _FieldsPageState extends State<FieldsPage> {
   String getFirstImageUrl(List<dynamic> images) {
     if (images.isEmpty) return '';
     String url = images[0].toString();//////////////////////////////////////////////////////////////////////////////////////////
-    if (url.startsWith('/')) url = 'http://192.168.3.180:3000$url';
+    if (url.startsWith('/')) url = 'https://api.courto.ly$url';
     return url;
   }
 
