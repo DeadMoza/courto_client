@@ -104,7 +104,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
       loading = true;
     });
 
-    final url = Uri.parse("${apiUrl}api/clients/updateField/${widget.field["field_id"]}");
+    final url = Uri.parse("${apiUrl}clients/updateField/${widget.field["field_id"]}");
 
     try {
       final res = await http.put(

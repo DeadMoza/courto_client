@@ -32,7 +32,7 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
   Future<void> fetchBookings() async {
     setState(() => loading = true);
     final url = Uri.parse(
-        "${apiUrl}api/clients/getfieldBookings/${widget.field['field_id']}");
+        "${apiUrl}clients/getfieldBookings/${widget.field['field_id']}");
 
     try {
       final res = await http.get(

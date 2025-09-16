@@ -33,7 +33,7 @@ class _FieldsPageState extends State<FieldsPage> {
       errorMessage = null;
     });
 
-    final url = Uri.parse("${apiUrl}api/clients/getFields");
+    final url = Uri.parse("${apiUrl}clients/getFields");
     try {
       final res = await http.get(
         url,
@@ -67,7 +67,7 @@ class _FieldsPageState extends State<FieldsPage> {
   String getFirstImageUrl(List<dynamic> images) {
     if (images.isEmpty) return '';
     String url = images[0].toString();//////////////////////////////////////////////////////////////////////////////////////////
-    if (url.startsWith('/')) url = 'https://api.courto.ly$url';
+    if (url.startsWith('/')) url = 'https://courto.ly/uploads/$url';
     return url;
   }
 

@@ -22,7 +22,7 @@ class _LoginPageState extends State<LoginPage> {
     FocusScope.of(context).unfocus();
     setState(() => loading = true);
 
-    final url = Uri.parse("${apiUrl}api/clients/login");
+    final url = Uri.parse("${apiUrl}clients/login");
 
     try {
       final res = await http.post(

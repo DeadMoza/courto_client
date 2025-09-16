@@ -136,7 +136,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
     final dateString = widget.date.toIso8601String().split('T')[0];
     final response = await http.get(
       Uri.parse(
-          "${apiUrl}api/clients/getfieldBookings/${widget.field['field_id']}/$dateString"),
+          "${apiUrl}clients/getfieldBookings/${widget.field['field_id']}/$dateString"),
       headers: {'Authorization': 'Bearer ${widget.token}'},
     );
 
@@ -151,7 +151,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
 
   Future<void> _markUnavailable(TimeSlot slot) async {
     final response = await http.post(
-      Uri.parse("${apiUrl}api/clients/blockBookingSlot"),
+      Uri.parse("${apiUrl}clients/blockBookingSlot"),
       headers: {
         'Authorization': 'Bearer ${widget.token}',
         'Content-Type': 'application/json'
@@ -173,7 +173,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
   }
 
   Future<void> _markAvailable(TimeSlot slot) async {
-    final url = Uri.parse("${apiUrl}api/clients/unblockBookingSlot");
+    final url = Uri.parse("${apiUrl}clients/unblockBookingSlot");
     final request = http.Request("DELETE", url)
       ..headers.addAll({
         'Authorization': 'Bearer ${widget.token}',
