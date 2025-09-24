@@ -28,11 +28,10 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
       ),
 
-      // 🌍 دعم اللغة العربية
       locale: const Locale('ar'),
       supportedLocales: const [
-        Locale('ar'), // العربية
-        Locale('en'), // الإنجليزية
+        Locale('ar'), 
+        Locale('en'), 
       ],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

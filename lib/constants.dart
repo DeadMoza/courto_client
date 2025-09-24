@@ -1,4 +1,7 @@
-const String apiUrl = "https://api.courto.ly/";
+// const String apiUrl = "https://api.courto.ly/";
+
+// to test on physical phone change url to pc ip
+const String apiUrl = "http://192.168.1.100:4000/"; 
 
 class AppFormat {
 

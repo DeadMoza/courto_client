@@ -67,7 +67,7 @@ class _FieldsPageState extends State<FieldsPage> {
   String getFirstImageUrl(List<dynamic> images) {
     if (images.isEmpty) return '';
     String url = images[0].toString();//////////////////////////////////////////////////////////////////////////////////////////
-    if (url.startsWith('/')) url = 'https://courto.ly/uploads/$url';
+    if (url.startsWith('/')) url = '${apiUrl.substring(0, apiUrl.length - 1)}$url'; // remove the "/" at the end of the api url
     return url;
   }
 
@@ -100,7 +100,7 @@ class _FieldsPageState extends State<FieldsPage> {
             children: [
               Expanded(
                 child: Text(
-                  "مرحبًا، ${AuthService.clientData?['full_name'] ?? ''}",
+                  "${AuthService.clientData?['full_name'] ?? ''}",
                   style: const TextStyle(
                     fontSize: 20, 
                     fontWeight: FontWeight.bold,
@@ -152,7 +152,7 @@ class _FieldsPageState extends State<FieldsPage> {
                         itemCount: fields.length,
                         itemBuilder: (context, index) {
                           final field = fields[index];
-                          final imageUrl = getFirstImageUrl(field["images"]);
+                          final imageUrl = getFirstImageUrl(field["field_images"]);
 
                           return GestureDetector(
                             onTap: () {
