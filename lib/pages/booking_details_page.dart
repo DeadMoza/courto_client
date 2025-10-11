@@ -36,7 +36,7 @@ class BookingDetailsPage extends StatelessWidget {
   Future<bool> _acceptBooking() async {
     if (booking == null) return false;
     final response = await http.patch(
-      Uri.parse("${apiUrl}clients/acceptBooking/${booking!['booking_id']}"),
+      Uri.parse("${apiUrl}clients/acceptBooking/${booking!['booking_id']}/${booking!['user_id']}"),
       headers: {'Authorization': 'Bearer $token'},
     );
     return response.statusCode == 200;
@@ -45,7 +45,7 @@ class BookingDetailsPage extends StatelessWidget {
   Future<bool> _rejectBooking() async {
     if (booking == null) return false;
     final response = await http.delete(
-      Uri.parse("${apiUrl}clients/rejectBooking/${booking!['booking_id']}"),
+      Uri.parse("${apiUrl}clients/rejectBooking/${booking!['booking_id']}/${booking!['user_id']}"),
       headers: {'Authorization': 'Bearer $token'},
     );
     return response.statusCode == 200;

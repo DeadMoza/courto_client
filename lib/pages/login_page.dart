@@ -25,12 +25,16 @@ class _LoginPageState extends State<LoginPage> {
     final url = Uri.parse("${apiUrl}clients/login");
 
     try {
+      final deviceId = AuthService.playerId;
+      final platform = AuthService.platform;
       final res = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: json.encode({
           "phone_number": phoneController.text.trim(),
           "password": passController.text,
+          "device_id": deviceId,
+          "platform": platform,
         }),
       );
 

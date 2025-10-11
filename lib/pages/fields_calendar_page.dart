@@ -207,7 +207,7 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
                                 return Center(
                                   child: Text(
                                     AppFormat.toEnglishNumbers(text),
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    style: const TextStyle(fontSize: 16),
                                   ),
                                 );
                               },
