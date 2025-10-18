@@ -27,11 +27,23 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final deviceId = AuthService.playerId;
       final platform = AuthService.platform;
+      String phone = phoneController.text.trim();
+
+      if (phone.startsWith("09")) {
+        phone = "218${phone.substring(1)}";
+      } else if (phone.startsWith("9")) {
+        phone = "218$phone";
+      } else if (phone.startsWith("0")) {
+        phone = "218${phone.substring(1)}";
+      } else if (!phone.startsWith("218")) {
+        phone = "218$phone";
+      }
+
       final res = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: json.encode({
-          "phone_number": phoneController.text.trim(),
+          "phone_number": phone,
           "password": passController.text,
           "device_id": deviceId,
           "platform": platform,

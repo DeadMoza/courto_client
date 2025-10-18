@@ -50,7 +50,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
       initialTime: initial,
       builder: (context, child) {
         return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          data: MediaQuery.of(context),
           child: child!,
         );
       },
@@ -79,6 +79,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
     return '${time.hour.toString().padLeft(2, '0')}:00';
   }
 
+  /// ✅ Validation: check that open/close time difference is between 4–16 hours
   bool _isValidTimeDifference() {
     if (openTime == null || closeTime == null) return true;
 
@@ -86,23 +87,48 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
     final openDt = DateTime(now.year, now.month, now.day, openTime!.hour, openTime!.minute);
     var closeDt = DateTime(now.year, now.month, now.day, closeTime!.hour, closeTime!.minute);
 
+    // Handle cases where closing time is after midnight
     if (closeDt.isBefore(openDt)) {
       closeDt = closeDt.add(const Duration(days: 1));
     }
 
     final difference = closeDt.difference(openDt).inHours;
-    return difference >= 4;
+
+    // Must be between 4 and 16 hours
+    return difference >= 4 && difference <= 16;
   }
 
+  /// ✅ Save updates with validation
   Future<void> saveField() async {
+    final price = double.tryParse(priceController.text) ?? 0;
+
+    // Validate price
+    if (price < 20 || price > 100) {
+      _showError("السعر يجب أن يكون بين 20 و 100 دينار");
+      return;
+    }
+
+    // Validate time difference
     if (!_isValidTimeDifference()) {
-      _showError("يجب أن يكون الفرق بين وقت الفتح والإغلاق 4 ساعات على الأقل");
+      _showError("يجب أن يكون الفرق بين وقت الفتح والإغلاق من 4 إلى 16 ساعة");
       return;
     }
 
     setState(() {
       loading = true;
     });
+
+          String phone = contactController.text.trim();
+
+      if (phone.startsWith("09")) {
+        phone = "218${phone.substring(1)}";
+      } else if (phone.startsWith("9")) {
+        phone = "218$phone";
+      } else if (phone.startsWith("0")) {
+        phone = "218${phone.substring(1)}";
+      } else if (!phone.startsWith("218")) {
+        phone = "218$phone";
+      }
 
     final url = Uri.parse("${apiUrl}clients/updateField/${widget.field["field_id"]}");
 
@@ -114,10 +140,10 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
           "Authorization": "Bearer ${widget.token}",
         },
         body: json.encode({
-          "field_price": double.tryParse(priceController.text) ?? 0,
+          "field_price": price,
           "field_open_time": _formatTimeForBackend(openTime),
           "field_close_time": _formatTimeForBackend(closeTime),
-          "field_contact": contactController.text,
+          "field_contact": phone,
           "field_description": descriptionController.text,
           "field_is_available": isAvailable,
         }),
@@ -129,7 +155,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("تم تحديث بيانات الملعب بنجاح"),
-            backgroundColor: Colors.green,
+            backgroundColor: Colors.red,
           ),
         );
         Navigator.pop(context, true);
@@ -197,20 +223,25 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
                       title: const Text(
                         "متاح للحجز؟",
                         style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                        ),
                       ),
                       value: isAvailable,
                       activeColor: Colors.red,
                       controlAffinity: ListTileControlAffinity.leading,
-                      onChanged: (val) => setState(() => isAvailable = val ?? true),
+                      onChanged: (val) =>
+                          setState(() => isAvailable = val ?? true),
                     ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: priceController,
                       keyboardType: TextInputType.number,
-                      decoration: _inputDecoration("السعر", icon: Icons.attach_money_rounded),
+                      decoration: _inputDecoration(
+                        "السعر",
+                        icon: Icons.attach_money_rounded,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -220,8 +251,13 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
                             onTap: () => _pickTime(isOpen: true),
                             child: AbsorbPointer(
                               child: TextField(
-                                decoration: _inputDecoration("وقت الفتح", icon: Icons.access_time),
-                                controller: TextEditingController(text: _formatTimeOfDay(openTime)),
+                                decoration: _inputDecoration(
+                                  "وقت الفتح",
+                                  icon: Icons.access_time,
+                                ),
+                                controller: TextEditingController(
+                                  text: _formatTimeOfDay(openTime),
+                                ),
                               ),
                             ),
                           ),
@@ -232,8 +268,13 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
                             onTap: () => _pickTime(isOpen: false),
                             child: AbsorbPointer(
                               child: TextField(
-                                decoration: _inputDecoration("وقت الإغلاق", icon: Icons.lock_clock_rounded),
-                                controller: TextEditingController(text: _formatTimeOfDay(closeTime)),
+                                decoration: _inputDecoration(
+                                  "وقت الإغلاق",
+                                  icon: Icons.lock_clock_rounded,
+                                ),
+                                controller: TextEditingController(
+                                  text: _formatTimeOfDay(closeTime),
+                                ),
                               ),
                             ),
                           ),
@@ -244,13 +285,19 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
                     TextField(
                       controller: contactController,
                       keyboardType: TextInputType.phone,
-                      decoration: _inputDecoration("رقم التواصل", icon: Icons.phone),
+                      decoration: _inputDecoration(
+                        "رقم التواصل",
+                        icon: Icons.phone,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: descriptionController,
                       maxLines: 3,
-                      decoration: _inputDecoration("الوصف", icon: Icons.description),
+                      decoration: _inputDecoration(
+                        "الوصف",
+                        icon: Icons.description,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     SizedBox(

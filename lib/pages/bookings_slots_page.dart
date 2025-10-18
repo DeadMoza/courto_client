@@ -28,6 +28,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
   late List<String?> bookedByList;
   late List<dynamic> currentBookings;
   bool _needsRefresh = false;
+  bool _isLoading = false; // ✅ Added loading state
 
   @override
   void initState() {
@@ -150,6 +151,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
   }
 
   Future<void> _markUnavailable(TimeSlot slot) async {
+    setState(() => _isLoading = true); // ✅ Show loading
     final response = await http.post(
       Uri.parse("${apiUrl}clients/blockBookingSlot"),
       headers: {
@@ -159,20 +161,21 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
       body: jsonEncode({
         'field_id': widget.field['field_id'],
         'booking_date': slot.start.toIso8601String().split('T')[0],
-        'start_time': AppFormat.formatHM(slot.start), // 24h format for API
+        'start_time': AppFormat.formatHM(slot.start),
         'end_time': AppFormat.formatHM(slot.end),
       }),
     );
 
+    setState(() => _isLoading = false); // ✅ Hide loading
+
     if (response.statusCode == 200) {
-      setState(() {
-        _needsRefresh = true;
-      });
+      setState(() => _needsRefresh = true);
       await _refreshBookings();
     }
   }
 
   Future<void> _markAvailable(TimeSlot slot) async {
+    setState(() => _isLoading = true); // ✅ Show loading
     final url = Uri.parse("${apiUrl}clients/unblockBookingSlot");
     final request = http.Request("DELETE", url)
       ..headers.addAll({
@@ -187,10 +190,11 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
       });
 
     final response = await request.send();
+
+    setState(() => _isLoading = false); // ✅ Hide loading
+
     if (response.statusCode == 200) {
-      setState(() {
-        _needsRefresh = true;
-      });
+      setState(() => _needsRefresh = true);
       await _refreshBookings();
     }
   }
@@ -214,133 +218,153 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
             iconTheme: const IconThemeData(color: Colors.white),
           ),
           backgroundColor: Colors.red.shade50,
-          body: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: slots.length,
-            itemBuilder: (context, i) {
-              final slot = slots[i];
-              final booking = _findBookingForSlot(slot);
+          body: Stack(
+            children: [
+              ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: slots.length,
+                itemBuilder: (context, i) {
+                  final slot = slots[i];
+                  final booking = _findBookingForSlot(slot);
 
-              String status = booking?['booking_status'] ?? "free";
-              if (status == "cancelled") status = "free";
+                  String status = booking?['booking_status'] ?? "free";
+                  if (status == "cancelled") status = "free";
 
-              bool isBooked = status == "pending" || status == "confirmed";
-              bool isUnavailable = status == "unavailable";
-              String bookedBy = booking?['booking_user'] ?? "";
+                  bool isBooked = status == "pending" || status == "confirmed";
+                  bool isUnavailable = status == "unavailable";
+                  String bookedBy = booking?['booking_user'] ?? "";
 
-              bool sameAsPrev =
-                  i > 0 && bookedByList[i] != null && bookedByList[i] == bookedByList[i - 1];
-              bool sameAsNext = i < slots.length - 1 &&
-                  bookedByList[i] != null &&
-                  bookedByList[i] == bookedByList[i + 1];
+                  bool sameAsPrev = i > 0 &&
+                      bookedByList[i] != null &&
+                      bookedByList[i] == bookedByList[i - 1];
+                  bool sameAsNext = i < slots.length - 1 &&
+                      bookedByList[i] != null &&
+                      bookedByList[i] == bookedByList[i + 1];
 
-              BorderRadius radius;
-              if (sameAsPrev && sameAsNext) {
-                radius = BorderRadius.zero;
-              } else if (sameAsPrev && !sameAsNext) {
-                radius = const BorderRadius.only(
-                    bottomLeft: Radius.circular(5), bottomRight: Radius.circular(5));
-              } else if (!sameAsPrev && sameAsNext) {
-                radius = const BorderRadius.only(
-                    topLeft: Radius.circular(5), topRight: Radius.circular(5));
-              } else {
-                radius = BorderRadius.circular(5);
-              }
+                  BorderRadius radius;
+                  if (sameAsPrev && sameAsNext) {
+                    radius = BorderRadius.zero;
+                  } else if (sameAsPrev && !sameAsNext) {
+                    radius = const BorderRadius.only(
+                        bottomLeft: Radius.circular(5),
+                        bottomRight: Radius.circular(5));
+                  } else if (!sameAsPrev && sameAsNext) {
+                    radius = const BorderRadius.only(
+                        topLeft: Radius.circular(5),
+                        topRight: Radius.circular(5));
+                  } else {
+                    radius = BorderRadius.circular(5);
+                  }
 
-              return Container(
-                margin: EdgeInsets.only(bottom: sameAsNext ? 0 : 6),
-                decoration: BoxDecoration(
-                  color: backgrounds[i] ?? Colors.white,
-                  borderRadius: radius,
-                ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                  title: Center(
-                    child: Text(
-                      "${AppFormat.formatTime(slot.start)} - ${AppFormat.formatTime(slot.end)}",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                  return Container(
+                    margin: EdgeInsets.only(bottom: sameAsNext ? 0 : 6),
+                    decoration: BoxDecoration(
+                      color: backgrounds[i] ?? Colors.white,
+                      borderRadius: radius,
                     ),
+                    child: ListTile(
+                      contentPadding:
+                          const EdgeInsets.symmetric(vertical: 8),
+                      title: Center(
+                        child: Text(
+                          "${AppFormat.formatTime(slot.start)} - ${AppFormat.formatTime(slot.end)}",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      subtitle: isBooked && !sameAsPrev
+                          ? Center(child: Text("محجوز من قبل $bookedBy"))
+                          : null,
+                      onTap: () async {
+                        if (status == "free") {
+                          bool? mark = await showDialog(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              title: const Text("تحديد كغير متاح؟"),
+                              actions: [
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text("لا")),
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    child: const Text("نعم")),
+                              ],
+                            ),
+                          );
+                          if (mark == true) await _markUnavailable(slot);
+                        } else if (isUnavailable) {
+                          bool? mark = await showDialog(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              title: const Text("تحديد كمتاح؟"),
+                              actions: [
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text("لا")),
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    child: const Text("نعم")),
+                              ],
+                            ),
+                          );
+                          if (mark == true) await _markAvailable(slot);
+                        } else {
+                          final bookingDate =
+                              DateTime.parse(booking!['booking_date']);
+                          final startParts =
+                              (booking['start_time'] as String).split(':');
+                          final endParts =
+                              (booking['end_time'] as String).split(':');
+
+                          final bookingStart = DateTime(
+                            bookingDate.year,
+                            bookingDate.month,
+                            bookingDate.day,
+                            int.parse(startParts[0]),
+                            int.parse(startParts[1]),
+                          );
+                          final bookingEnd = DateTime(
+                            bookingDate.year,
+                            bookingDate.month,
+                            bookingDate.day,
+                            int.parse(endParts[0]),
+                            int.parse(endParts[1]),
+                          );
+
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BookingDetailsPage(
+                                booking: booking,
+                                start: bookingStart,
+                                end: bookingEnd,
+                                field: widget.field,
+                                token: widget.token,
+                              ),
+                            ),
+                          );
+
+                          if (result == true) {
+                            setState(() => _needsRefresh = true);
+                            await _refreshBookings();
+                          }
+                        }
+                      },
+                    ),
+                  );
+                },
+              ),
+              if (_isLoading) // ✅ Loading overlay
+                Container(
+                  color: Colors.black45,
+                  child: const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
                   ),
-                  subtitle: isBooked && !sameAsPrev
-                      ? Center(child: Text("محجوز من قبل $bookedBy"))
-                      : null,
-                  onTap: () async {
-                    if (status == "free") {
-                      bool? mark = await showDialog(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text("تحديد كغير متاح؟"),
-                          actions: [
-                            TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text("لا")),
-                            TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text("نعم")),
-                          ],
-                        ),
-                      );
-                      if (mark == true) await _markUnavailable(slot);
-                    } else if (isUnavailable) {
-                      bool? mark = await showDialog(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text("تحديد كمتاح؟"),
-                          actions: [
-                            TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text("لا")),
-                            TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text("نعم")),
-                          ],
-                        ),
-                      );
-                      if (mark == true) await _markAvailable(slot);
-                    } else {
-                      final bookingDate = DateTime.parse(booking!['booking_date']);
-                      final startParts = (booking['start_time'] as String).split(':');
-                      final endParts = (booking['end_time'] as String).split(':');
-
-                      final bookingStart = DateTime(
-                        bookingDate.year,
-                        bookingDate.month,
-                        bookingDate.day,
-                        int.parse(startParts[0]),
-                        int.parse(startParts[1]),
-                      );
-                      final bookingEnd = DateTime(
-                        bookingDate.year,
-                        bookingDate.month,
-                        bookingDate.day,
-                        int.parse(endParts[0]),
-                        int.parse(endParts[1]),
-                      );
-
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => BookingDetailsPage(
-                            booking: booking,
-                            start: bookingStart,
-                            end: bookingEnd,
-                            field: widget.field,
-                            token: widget.token,
-                          ),
-                        ),
-                      );
-
-                      if (result == true) {
-                        setState(() {
-                          _needsRefresh = true;
-                        });
-                        await _refreshBookings();
-                      }
-                    }
-                  },
                 ),
-              );
-            },
+            ],
           ),
         ),
       ),

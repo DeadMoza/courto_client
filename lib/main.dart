@@ -16,7 +16,7 @@ void main() async {
   OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
 
   // Ask for permission
-  OneSignal.Notifications.requestPermission(true);
+  await OneSignal.Notifications.requestPermission(true);
 
 // get OneSignal player id
 final id = await OneSignal.User.getOnesignalId();
@@ -47,8 +47,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Client App',
+      title: 'courto manager',
       debugShowCheckedModeBanner: false,
+      navigatorObservers: [routeObserver],
       theme: ThemeData(
         fontFamily: 'Changa',
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),

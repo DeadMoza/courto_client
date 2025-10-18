@@ -22,7 +22,7 @@ static Future<void> saveSession(Map<String, dynamic> client, String jwtToken) as
   token = jwtToken;
   isLoggedIn = true;
 
-  if (client['client_id'] != null) {
+  if (client['id'] != null) {
     await OneSignal.login(client['id'].toString());
 
     // Try to get playerId from OneSignal, fallback to existing value
@@ -53,8 +53,8 @@ static Future<void> saveSession(Map<String, dynamic> client, String jwtToken) as
       clientData = jsonDecode(clientString) as Map<String, dynamic>;
       isLoggedIn = true;
 
-      if (clientData?['client_id'] != null) {
-        await OneSignal.login(clientData!['client_id'].toString());
+      if (clientData?['id'] != null) {
+        await OneSignal.login(clientData!['id'].toString());
 
         // refresh playerId if missing
         if (playerId == null) {

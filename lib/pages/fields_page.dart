@@ -7,7 +7,11 @@ import 'fields_edit_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
-import 'dart:ui' as ui; 
+import 'dart:ui' as ui;
+import 'package:shared_preferences/shared_preferences.dart';
+
+// 👇 RouteObserver instance (you can also move it to main.dart)
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
 class FieldsPage extends StatefulWidget {
   const FieldsPage({super.key});
@@ -16,15 +20,50 @@ class FieldsPage extends StatefulWidget {
   _FieldsPageState createState() => _FieldsPageState();
 }
 
-class _FieldsPageState extends State<FieldsPage> {
+class _FieldsPageState extends State<FieldsPage> with RouteAware {
   List fields = [];
   bool loading = false;
   String? errorMessage;
+  String walletBalance = "0";
 
   @override
   void initState() {
     super.initState();
-    if (AuthService.isLoggedIn) fetchFields();
+    if (AuthService.isLoggedIn) {
+      fetchFields();
+      walletBalance = AuthService.clientData?['wallet_balance']?.toString() ?? "0";
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 👇 Subscribe to route changes
+    routeObserver.subscribe(this, ModalRoute.of(context)! as PageRoute);
+  }
+
+  @override
+  void dispose() {
+    // 👇 Unsubscribe when leaving
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  // 👇 Called automatically when returning to this page
+  @override
+  void didPopNext() async {
+    await _reloadWallet();
+  }
+
+  Future<void> _reloadWallet() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('clientData');
+    if (saved != null) {
+      final decoded = jsonDecode(saved);
+      setState(() {
+        walletBalance = decoded['wallet_balance']?.toString() ?? "0";
+      });
+    }
   }
 
   Future<void> fetchFields() async {
@@ -66,12 +105,11 @@ class _FieldsPageState extends State<FieldsPage> {
 
   String getFirstImageUrl(List<dynamic> images) {
     if (images.isEmpty) return '';
-    String url = images[0].toString();//////////////////////////////////////////////////////////////////////////////////////////
-    if (url.startsWith('/')) url = '${apiUrl.substring(0, apiUrl.length - 1)}$url'; // remove the "/" at the end of the api url
+    String url = images[0].toString();
+    if (url.startsWith('/')) url = '${apiUrl.substring(0, apiUrl.length - 1)}$url';
     return url;
   }
 
-  
   String formatTime(String timeStr) {
     try {
       final parts = timeStr.split(':');
@@ -81,7 +119,7 @@ class _FieldsPageState extends State<FieldsPage> {
       final minute = int.parse(parts[1]);
 
       final dt = DateTime(0, 1, 1, hour, minute);
-      return DateFormat("HH:mm").format(dt); 
+      return DateFormat("HH:mm").format(dt);
     } catch (_) {
       return timeStr;
     }
@@ -102,7 +140,7 @@ class _FieldsPageState extends State<FieldsPage> {
                 child: Text(
                   "${AuthService.clientData?['full_name'] ?? ''}",
                   style: const TextStyle(
-                    fontSize: 20, 
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
@@ -127,7 +165,7 @@ class _FieldsPageState extends State<FieldsPage> {
                         color: Colors.red, size: 24),
                     const SizedBox(width: 4),
                     Text(
-                      AuthService.clientData?['wallet_balance']?.toString() ?? '0',
+                      walletBalance,
                       style: const TextStyle(
                           color: Colors.red, fontWeight: FontWeight.bold),
                     ),
@@ -139,12 +177,14 @@ class _FieldsPageState extends State<FieldsPage> {
         ),
         body: AuthService.isLoggedIn
             ? loading
-                ? const Center(child: CircularProgressIndicator(color: Colors.red))
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.red))
                 : errorMessage != null
                     ? Center(
                         child: Text(
                           errorMessage!,
-                          style: const TextStyle(color: Colors.red, fontSize: 16),
+                          style:
+                              const TextStyle(color: Colors.red, fontSize: 16),
                         ),
                       )
                     : ListView.builder(
@@ -152,7 +192,8 @@ class _FieldsPageState extends State<FieldsPage> {
                         itemCount: fields.length,
                         itemBuilder: (context, index) {
                           final field = fields[index];
-                          final imageUrl = getFirstImageUrl(field["field_images"]);
+                          final imageUrl =
+                              getFirstImageUrl(field["field_images"]);
 
                           return GestureDetector(
                             onTap: () {
@@ -196,7 +237,8 @@ class _FieldsPageState extends State<FieldsPage> {
                                   Padding(
                                     padding: const EdgeInsets.all(14),
                                     child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Expanded(
                                           child: Column(
@@ -213,7 +255,9 @@ class _FieldsPageState extends State<FieldsPage> {
                                               const SizedBox(height: 6),
                                               Row(
                                                 children: [
-                                                  const Icon(Icons.attach_money_rounded,
+                                                  const Icon(
+                                                      Icons
+                                                          .attach_money_rounded,
                                                       color: Colors.red,
                                                       size: 18),
                                                   const SizedBox(width: 4),
@@ -250,8 +294,10 @@ class _FieldsPageState extends State<FieldsPage> {
                                               CrossAxisAlignment.end,
                                           children: [
                                             Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                  horizontal: 8, vertical: 4),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4),
                                               decoration: BoxDecoration(
                                                 color: Colors.red[50],
                                                 borderRadius:
