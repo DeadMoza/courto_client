@@ -12,6 +12,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await initializeDateFormatting('ar', null);
+  
   OneSignal.initialize("8916e71d-b445-46d9-bb2d-0fd250289db0"); 
   OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
 

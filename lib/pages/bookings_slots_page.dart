@@ -101,37 +101,52 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
     setState(() {});
   }
 
-  Map<String, dynamic>? _findBookingForSlot(TimeSlot slot) {
-    try {
-      return currentBookings.firstWhere(
-        (b) {
-          final bookingDate = DateTime.parse(b['booking_date']);
-          final startParts = (b['start_time'] as String).split(':');
-          final endParts = (b['end_time'] as String).split(':');
+ Map<String, dynamic>? _findBookingForSlot(TimeSlot slot) {
+  try {
+    return currentBookings.firstWhere(
+      (b) {
+        final bookingDate = DateTime.parse(b['booking_date']);
+        final startParts = (b['start_time'] as String).split(':');
+        final endParts = (b['end_time'] as String).split(':');
 
-          final start = DateTime(
-            bookingDate.year,
-            bookingDate.month,
-            bookingDate.day,
-            int.parse(startParts[0]),
-            int.parse(startParts[1]),
-          );
-          final end = DateTime(
-            bookingDate.year,
-            bookingDate.month,
-            bookingDate.day,
-            int.parse(endParts[0]),
-            int.parse(endParts[1]),
-          );
+        // Booking start datetime
+        final start = DateTime(
+          bookingDate.year,
+          bookingDate.month,
+          bookingDate.day,
+          int.parse(startParts[0]),
+          int.parse(startParts[1]),
+        );
 
-          return slot.start.isAtSameMomentAs(start) ||
-              (slot.start.isAfter(start) && slot.start.isBefore(end));
-        },
-      );
-    } catch (e) {
-      return null;
-    }
+        // Booking end datetime
+        var end = DateTime(
+          bookingDate.year,
+          bookingDate.month,
+          bookingDate.day,
+          int.parse(endParts[0]),
+          int.parse(endParts[1]),
+        );
+
+        // Overnight booking adjustment
+        if (end.isBefore(start)) {
+          end = end.add(const Duration(days: 1));
+        }
+
+        // Treat slots after midnight as belonging to the previous day if they match booking
+        final slotStartAdjusted = slot.start.isBefore(start)
+            ? slot.start.add(const Duration(days: 1))
+            : slot.start;
+
+        return slotStartAdjusted.isAtSameMomentAs(start) ||
+            (slotStartAdjusted.isAfter(start) && slotStartAdjusted.isBefore(end));
+      },
+    );
+  } catch (e) {
+    return null;
   }
+}
+
+
 
   Future<void> _refreshBookings() async {
     final dateString = widget.date.toIso8601String().split('T')[0];

@@ -10,7 +10,6 @@ import 'package:intl/intl.dart';
 import 'dart:ui' as ui;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// 👇 RouteObserver instance (you can also move it to main.dart)
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
 class FieldsPage extends StatefulWidget {
@@ -38,18 +37,18 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // 👇 Subscribe to route changes
+    // Subscribe to route changes
     routeObserver.subscribe(this, ModalRoute.of(context)! as PageRoute);
   }
 
   @override
   void dispose() {
-    // 👇 Unsubscribe when leaving
+    //  Unsubscribe when leaving
     routeObserver.unsubscribe(this);
     super.dispose();
   }
 
-  // 👇 Called automatically when returning to this page
+  // Called automatically when returning to this page
   @override
   void didPopNext() async {
     await _reloadWallet();
