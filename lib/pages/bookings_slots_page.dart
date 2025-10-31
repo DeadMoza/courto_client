@@ -1,5 +1,6 @@
 import 'package:client_app/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'booking_details_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -28,7 +29,8 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
   late List<String?> bookedByList;
   late List<dynamic> currentBookings;
   bool _needsRefresh = false;
-  bool _isLoading = false; // ✅ Added loading state
+  bool _isLoading = false;
+  final apiUrl = dotenv.env['API_URL'];
 
   @override
   void initState() {
@@ -153,7 +155,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
     final response = await http.get(
       Uri.parse(
           "${apiUrl}clients/getfieldBookings/${widget.field['field_id']}/$dateString"),
-      headers: {'Authorization': 'Bearer ${widget.token}'},
+      headers: {'Authorization': 'Bearer ${widget.token}', 'x-api-key': '${dotenv.env['API_KEY']}'},
     );
 
     if (response.statusCode == 200) {
@@ -166,12 +168,13 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
   }
 
   Future<void> _markUnavailable(TimeSlot slot) async {
-    setState(() => _isLoading = true); // ✅ Show loading
+    setState(() => _isLoading = true);
     final response = await http.post(
       Uri.parse("${apiUrl}clients/blockBookingSlot"),
       headers: {
         'Authorization': 'Bearer ${widget.token}',
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-api-key': '${dotenv.env['API_KEY']}'
       },
       body: jsonEncode({
         'field_id': widget.field['field_id'],
@@ -181,7 +184,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
       }),
     );
 
-    setState(() => _isLoading = false); // ✅ Hide loading
+    setState(() => _isLoading = false); 
 
     if (response.statusCode == 200) {
       setState(() => _needsRefresh = true);
@@ -190,12 +193,13 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
   }
 
   Future<void> _markAvailable(TimeSlot slot) async {
-    setState(() => _isLoading = true); // ✅ Show loading
+    setState(() => _isLoading = true);
     final url = Uri.parse("${apiUrl}clients/unblockBookingSlot");
     final request = http.Request("DELETE", url)
       ..headers.addAll({
         'Authorization': 'Bearer ${widget.token}',
         'Content-Type': 'application/json',
+        'x-api-key': '${dotenv.env['API_KEY']}'
       })
       ..body = jsonEncode({
         "field_id": widget.field['field_id'],
@@ -206,7 +210,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
 
     final response = await request.send();
 
-    setState(() => _isLoading = false); // ✅ Hide loading
+    setState(() => _isLoading = false); 
 
     if (response.statusCode == 200) {
       setState(() => _needsRefresh = true);

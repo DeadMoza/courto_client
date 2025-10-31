@@ -1,5 +1,6 @@
 import 'package:client_app/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/auth_service.dart';
 import 'login_page.dart';
 import 'fields_calendar_page.dart';
@@ -24,6 +25,7 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
   bool loading = false;
   String? errorMessage;
   String walletBalance = "0";
+  final apiUrl = dotenv.env['API_URL'];
 
   @override
   void initState() {
@@ -78,6 +80,7 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${AuthService.token}",
+          'x-api-key': '${dotenv.env['API_KEY']}'
         },
       );
 
@@ -105,7 +108,7 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
   String getFirstImageUrl(List<dynamic> images) {
     if (images.isEmpty) return '';
     String url = images[0].toString();
-    if (url.startsWith('/')) url = '${apiUrl.substring(0, apiUrl.length - 1)}$url';
+    if (url.startsWith('/')) url = '${apiUrl!.substring(0, apiUrl!.length - 1)}$url';
     return url;
   }
 

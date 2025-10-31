@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:client_app/constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 
 enum BookingStatus { free, pending, confirmed }
+final apiUrl = dotenv.env['API_URL'];
 
 BookingStatus parseStatus(String? status) {
   switch (status) {
@@ -35,6 +37,7 @@ class BookingDetailsPage extends StatelessWidget {
     required this.field,
     this.token,
     this.isManualBlocked = false,
+    
   });
 
 Future<Map<String, dynamic>> _acceptBooking() async {
@@ -42,7 +45,7 @@ Future<Map<String, dynamic>> _acceptBooking() async {
   try {
     final response = await http.patch(
       Uri.parse("${apiUrl}clients/acceptBooking/${booking!['booking_id']}/${booking!['user_id']}"),
-      headers: {'Authorization': 'Bearer $token'},
+      headers: {'Authorization': 'Bearer $token', 'x-api-key': '${dotenv.env['API_KEY']}'},
     );
 
     if (response.statusCode == 200) {
@@ -57,8 +60,6 @@ Future<Map<String, dynamic>> _acceptBooking() async {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('clientData', jsonEncode(AuthService.clientData));
 
-  print("//////////////her//////////");
-          print(prefs.getString('clientData'));
         }
       }
 
@@ -82,7 +83,7 @@ Future<Map<String, dynamic>> _acceptBooking() async {
     try {
       final response = await http.delete(
         Uri.parse("${apiUrl}clients/rejectBooking/${booking!['booking_id']}/${booking!['user_id']}"),
-        headers: {'Authorization': 'Bearer $token'},
+        headers: {'Authorization': 'Bearer $token', 'x-api-key': '${dotenv.env['API_KEY']}'},
       );
 
       if (response.statusCode == 200) {

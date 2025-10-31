@@ -1,8 +1,3 @@
-// const String apiUrl = "https://api.courto.ly/";
-
-// to test on physical phone change url to pc ip
-const String apiUrl = "http://192.168.3.180:4000/"; 
-
 class AppFormat {
 
     // convert api time string into datetime to pass to formatting function (formatTime)

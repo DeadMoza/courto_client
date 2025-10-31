@@ -21,6 +21,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   onesignal_flutter: ^5.3.4
+  flutter_dotenv: ^6.0.0
 
 dev_dependencies:
   flutter_test:
@@ -36,6 +37,7 @@ flutter:
 
 
   assets:
+    - .env
     - assets/images/courto.png
     
   fonts:

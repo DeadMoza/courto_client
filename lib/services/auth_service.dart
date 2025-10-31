@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
-import 'package:client_app/constants.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
@@ -10,7 +10,9 @@ class AuthService {
   static Map<String, dynamic>? clientData;
   static String? token;
   static String? playerId;
-  static String? platform; 
+  static String? platform;
+  
+
 
   /// Save session after successful signup/login
 static Future<void> saveSession(Map<String, dynamic> client, String jwtToken) async {
@@ -71,6 +73,8 @@ static Future<void> saveSession(Map<String, dynamic> client, String jwtToken) as
             await prefs.setString('platform', platform!);
           }
         }
+
+        await refreshWalletBalance();
       }
     } else {
       await clearSession();
@@ -79,6 +83,7 @@ static Future<void> saveSession(Map<String, dynamic> client, String jwtToken) as
 
   /// Logout client and clear session
 static Future<void> clearSession() async {
+  final apiUrl = dotenv.env['API_URL'];
   try {
     // Try removing device from backend before logout
     if (clientData!["id"] != null) {
@@ -86,6 +91,7 @@ static Future<void> clearSession() async {
       final headers = {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
+        'x-api-key': '${dotenv.env['API_KEY']}'
       };
       final body = jsonEncode({
         'client_id': clientData!['id'],
@@ -112,15 +118,53 @@ static Future<void> clearSession() async {
   } catch (error) {
     
   }
-}
-
-
-  static double get walletBalance {
-    if (clientData == null) return 0;
-    return double.tryParse(clientData!['wallet_balance']?.toString() ?? '0') ?? 0;
   }
+
+    static double get walletBalance {
+      if (clientData == null) return 0.0; // prevents null crash
+      final balanceString = clientData?['wallet_balance']?.toString() ?? '0';
+      return double.tryParse(balanceString) ?? 0.0;
+    }
 
   static String get fullName {
     return clientData?['full_name']?.toString() ?? '';
   }
+
+
+    /// Fetch the latest wallet balance from the API and update local data
+  static Future<void> refreshWalletBalance() async {
+    final apiUrl = dotenv.env['API_URL'];
+
+    if (clientData == null || token == null) return;
+
+    try {
+      final response = await http.post(
+        Uri.parse("${apiUrl}clients/getUserWallet"),
+        headers: {
+          "Content-Type": "application/json",
+          "authorization": "Bearer $token",
+          'x-api-key': '${dotenv.env['API_KEY']}'
+        },
+        body: jsonEncode({
+          "client_id": clientData!['id'],
+        }),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final balance = double.tryParse(data['balance'].toString()) ?? 0;
+
+        // Update memory
+        clientData!['wallet_balance'] = balance;
+
+        // Save updated user data in SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('clientData', jsonEncode(clientData));
+
+      } 
+    // ignore: empty_catches
+    } catch (e) {
+
+    }
+  }
+
 }

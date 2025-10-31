@@ -1,5 +1,6 @@
 import 'package:client_app/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -22,6 +23,7 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
   DateTime focusedDay = DateTime.now();
   DateTime? selectedDay;
   bool loading = true;
+  final apiUrl = dotenv.env['API_URL'];
 
   @override
   void initState() {
@@ -40,6 +42,7 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${widget.token}",
+          'x-api-key': '${dotenv.env['API_KEY']}'
         },
       );
 

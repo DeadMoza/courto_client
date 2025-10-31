@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
@@ -10,10 +11,11 @@ import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
 
   await initializeDateFormatting('ar', null);
   
-  OneSignal.initialize("8916e71d-b445-46d9-bb2d-0fd250289db0"); 
+  OneSignal.initialize(dotenv.env['ONESIGNAL_APP_ID']!); 
   OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
 
   // Ask for permission

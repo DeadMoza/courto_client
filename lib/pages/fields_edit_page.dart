@@ -1,5 +1,5 @@
-import 'package:client_app/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:ui' as ui;
@@ -23,6 +23,8 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
 
   TimeOfDay? openTime;
   TimeOfDay? closeTime;
+
+  final apiUrl = dotenv.env['API_URL'];
 
   @override
   void initState() {
@@ -79,7 +81,6 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
     return '${time.hour.toString().padLeft(2, '0')}:00';
   }
 
-  /// ✅ Validation: check that open/close time difference is between 4–16 hours
   bool _isValidTimeDifference() {
     if (openTime == null || closeTime == null) return true;
 
@@ -98,7 +99,6 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
     return difference >= 4 && difference <= 16;
   }
 
-  /// ✅ Save updates with validation
   Future<void> saveField() async {
     final price = double.tryParse(priceController.text) ?? 0;
 
@@ -138,6 +138,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${widget.token}",
+          'x-api-key': '${dotenv.env['API_KEY']}'
         },
         body: json.encode({
           "field_price": price,
