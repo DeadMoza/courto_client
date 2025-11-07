@@ -75,6 +75,8 @@ static Future<void> saveSession(Map<String, dynamic> client, String jwtToken) as
         }
 
         await refreshWalletBalance();
+        print(clientData);
+        print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
       }
     } else {
       await clearSession();
@@ -82,46 +84,40 @@ static Future<void> saveSession(Map<String, dynamic> client, String jwtToken) as
   }
 
   /// Logout client and clear session
-static Future<void> clearSession() async {
-  final apiUrl = dotenv.env['API_URL'];
-  try {
-    // Try removing device from backend before logout
-    if (clientData!["id"] != null) {
-      final url = Uri.parse('${apiUrl}clients/removeDevice');
-      final headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-        'x-api-key': '${dotenv.env['API_KEY']}'
-      };
-      final body = jsonEncode({
-        'client_id': clientData!['id'],
-        'device_id': playerId,
-      });
+  static Future<void> clearSession() async {
+    final apiUrl = dotenv.env['API_URL'];
 
-      final _ = await http.delete(url, headers: headers, body: body);
+    try {
+      if (clientData!['id'] != null) {
+        // ignore: unused_local_variable
+        final res = await http.delete(
+          Uri.parse("${apiUrl}clients/removeDevice"),
+          headers: {"Content-Type": "application/json", "authorization": "Bearer $token", 'x-api-key': '${dotenv.env['API_KEY']}'},
+          body: jsonEncode({
+            "client_id": clientData!['id'],
+            "device_id": playerId,
+          }),
+        ); 
+      }
+    // ignore: empty_catches
+    } catch (e) {
+     
     }
 
-    // Unlink client from OneSignal
-    await OneSignal.logout();
-
-    // Clear local session data
+    
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('sessionToken');
     await prefs.remove('clientData');
-
 
     token = null;
     clientData = null;
     isLoggedIn = false;
 
-  // ignore: empty_catches
-  } catch (error) {
-    
-  }
+    await OneSignal.logout();
   }
 
     static double get walletBalance {
-      if (clientData == null) return 0.0; // prevents null crash
+      if (clientData == null) return 0.0; 
       final balanceString = clientData?['wallet_balance']?.toString() ?? '0';
       return double.tryParse(balanceString) ?? 0.0;
     }
@@ -131,7 +127,6 @@ static Future<void> clearSession() async {
   }
 
 
-    /// Fetch the latest wallet balance from the API and update local data
   static Future<void> refreshWalletBalance() async {
     final apiUrl = dotenv.env['API_URL'];
 

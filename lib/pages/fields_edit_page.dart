@@ -19,6 +19,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
   late TextEditingController contactController;
   late TextEditingController descriptionController;
   bool isAvailable = true;
+  bool autoAccept = false; // ✅ New field
   bool loading = false;
 
   TimeOfDay? openTime;
@@ -33,6 +34,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
     contactController = TextEditingController(text: widget.field["field_contact_number"] ?? "");
     descriptionController = TextEditingController(text: widget.field["field_description"] ?? "");
     isAvailable = widget.field["field_is_available"] ?? true;
+    autoAccept = widget.field["auto_accept"] ?? false; // ✅ Initialize new field
 
     openTime = _parseTime(widget.field["field_open_time"]);
     closeTime = _parseTime(widget.field["field_close_time"]);
@@ -118,17 +120,17 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
       loading = true;
     });
 
-          String phone = contactController.text.trim();
+    String phone = contactController.text.trim();
 
-      if (phone.startsWith("09")) {
-        phone = "218${phone.substring(1)}";
-      } else if (phone.startsWith("9")) {
-        phone = "218$phone";
-      } else if (phone.startsWith("0")) {
-        phone = "218${phone.substring(1)}";
-      } else if (!phone.startsWith("218")) {
-        phone = "218$phone";
-      }
+    if (phone.startsWith("09")) {
+      phone = "218${phone.substring(1)}";
+    } else if (phone.startsWith("9")) {
+      phone = "218$phone";
+    } else if (phone.startsWith("0")) {
+      phone = "218${phone.substring(1)}";
+    } else if (!phone.startsWith("218")) {
+      phone = "218$phone";
+    }
 
     final url = Uri.parse("${apiUrl}clients/updateField/${widget.field["field_id"]}");
 
@@ -147,6 +149,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
           "field_contact": phone,
           "field_description": descriptionController.text,
           "field_is_available": isAvailable,
+          "field_auto_accept": autoAccept, // ✅ Send new value
         }),
       );
 
@@ -156,7 +159,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("تم تحديث بيانات الملعب بنجاح"),
-            backgroundColor: Colors.red,
+            backgroundColor: Colors.redAccent,
           ),
         );
         Navigator.pop(context, true);
@@ -174,14 +177,14 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
     );
   }
 
   InputDecoration _inputDecoration(String label, {IconData? icon}) {
     return InputDecoration(
       labelText: label,
-      prefixIcon: icon != null ? Icon(icon, color: Colors.red) : null,
+      prefixIcon: icon != null ? Icon(icon, color: Colors.redAccent) : null,
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(
@@ -212,10 +215,10 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
             style: const TextStyle(color: Colors.white),
           ),
           iconTheme: const IconThemeData(color: Colors.white),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.redAccent,
         ),
         body: loading
-            ? const Center(child: CircularProgressIndicator(color: Colors.red))
+            ? const Center(child: CircularProgressIndicator(color: Colors.redAccent))
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -226,14 +229,37 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.red,
+                          color: Colors.redAccent,
                         ),
                       ),
+                      subtitle: const Text(
+                        "في حال عدم التفعيل سوف يختفي الملعب من واجهة المستخدمين, ولا يمكن لأحد حجز الملعب عبر التطبيق.",
+                        style: TextStyle(color: Colors.black54),
+                      ),
                       value: isAvailable,
-                      activeColor: Colors.red,
+                      activeColor: Colors.redAccent,
                       controlAffinity: ListTileControlAffinity.leading,
                       onChanged: (val) =>
                           setState(() => isAvailable = val ?? true),
+                    ),
+                    const SizedBox(height: 8),
+                    CheckboxListTile(
+                      title: const Text(
+                        "الموافقة علي الحجوزات تلقائيا؟",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        "في حال التفعيل سيتم تأكيد الحجوزات فوراً دون مراجعة.",
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                      value: autoAccept,
+                      activeColor: Colors.redAccent,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      onChanged: (val) => setState(() => autoAccept = val ?? false),
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -307,7 +333,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
                       child: ElevatedButton(
                         onPressed: saveField,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
+                          backgroundColor: Colors.redAccent,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),

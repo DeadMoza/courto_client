@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:client_app/pages/home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -55,7 +56,7 @@ class MyApp extends StatelessWidget {
       navigatorObservers: [routeObserver],
       theme: ThemeData(
         fontFamily: 'Changa',
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.redAccent),
       ),
 
       locale: const Locale('ar'),
@@ -69,7 +70,15 @@ class MyApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
 
-      home: AuthService.isLoggedIn ? const FieldsPage() : const LoginPage(),
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(textScaler: const TextScaler.linear(1.0)),
+          child: child!,
+        );
+      },
+
+      home: AuthService.isLoggedIn ? const HomePage() : const LoginPage(),
     );
   }
 }

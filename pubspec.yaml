@@ -22,6 +22,7 @@ dependencies:
     sdk: flutter
   onesignal_flutter: ^5.3.4
   flutter_dotenv: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 dev_dependencies:
   flutter_test:
@@ -45,3 +46,13 @@ flutter:
       fonts:
         - asset: assets/Changa-SemiBold.ttf
           weight: 600
+
+
+flutter_launcher_icons: 
+  flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/courtoManagerLogo.png"
+  adaptive_icon_background: "#FFFFEBEE"  # or a color hex
+  adaptive_icon_foreground: "assets/images/courtoManagerLogo.png"
+  remove_alpha_ios: true

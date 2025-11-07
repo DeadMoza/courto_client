@@ -92,70 +92,67 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
           backgrounds[i] = Colors.grey[400];
           bookedByList[i] = null;
         } else {
-          backgrounds[i] = Colors.white; // free
+          backgrounds[i] = Colors.white;
           bookedByList[i] = null;
         }
       } else {
-        backgrounds[i] = Colors.white; // free
+        backgrounds[i] = Colors.white;
         bookedByList[i] = null;
       }
     }
     setState(() {});
   }
 
- Map<String, dynamic>? _findBookingForSlot(TimeSlot slot) {
-  try {
-    return currentBookings.firstWhere(
-      (b) {
-        final bookingDate = DateTime.parse(b['booking_date']);
-        final startParts = (b['start_time'] as String).split(':');
-        final endParts = (b['end_time'] as String).split(':');
+  Map<String, dynamic>? _findBookingForSlot(TimeSlot slot) {
+    try {
+      return currentBookings.firstWhere(
+        (b) {
+          final bookingDate = DateTime.parse(b['booking_date']);
+          final startParts = (b['start_time'] as String).split(':');
+          final endParts = (b['end_time'] as String).split(':');
 
-        // Booking start datetime
-        final start = DateTime(
-          bookingDate.year,
-          bookingDate.month,
-          bookingDate.day,
-          int.parse(startParts[0]),
-          int.parse(startParts[1]),
-        );
+          final start = DateTime(
+            bookingDate.year,
+            bookingDate.month,
+            bookingDate.day,
+            int.parse(startParts[0]),
+            int.parse(startParts[1]),
+          );
 
-        // Booking end datetime
-        var end = DateTime(
-          bookingDate.year,
-          bookingDate.month,
-          bookingDate.day,
-          int.parse(endParts[0]),
-          int.parse(endParts[1]),
-        );
+          var end = DateTime(
+            bookingDate.year,
+            bookingDate.month,
+            bookingDate.day,
+            int.parse(endParts[0]),
+            int.parse(endParts[1]),
+          );
 
-        // Overnight booking adjustment
-        if (end.isBefore(start)) {
-          end = end.add(const Duration(days: 1));
-        }
+          if (end.isBefore(start)) {
+            end = end.add(const Duration(days: 1));
+          }
 
-        // Treat slots after midnight as belonging to the previous day if they match booking
-        final slotStartAdjusted = slot.start.isBefore(start)
-            ? slot.start.add(const Duration(days: 1))
-            : slot.start;
+          final slotStartAdjusted = slot.start.isBefore(start)
+              ? slot.start.add(const Duration(days: 1))
+              : slot.start;
 
-        return slotStartAdjusted.isAtSameMomentAs(start) ||
-            (slotStartAdjusted.isAfter(start) && slotStartAdjusted.isBefore(end));
-      },
-    );
-  } catch (e) {
-    return null;
+          return slotStartAdjusted.isAtSameMomentAs(start) ||
+              (slotStartAdjusted.isAfter(start) && slotStartAdjusted.isBefore(end));
+        },
+      );
+    } catch (e) {
+      return null;
+    }
   }
-}
-
-
 
   Future<void> _refreshBookings() async {
     final dateString = widget.date.toIso8601String().split('T')[0];
     final response = await http.get(
       Uri.parse(
           "${apiUrl}clients/getfieldBookings/${widget.field['field_id']}/$dateString"),
-      headers: {'Authorization': 'Bearer ${widget.token}', 'x-api-key': '${dotenv.env['API_KEY']}'},
+      headers: {
+        'Authorization': 'Bearer ${widget.token}',
+        'x-api-key': '${dotenv.env['API_KEY']}'
+      },
     );
 
     if (response.statusCode == 200) {
@@ -167,10 +164,10 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
     }
   }
 
-  Future<void> _markUnavailable(TimeSlot slot) async {
+  Future<void> _markUnavailable(TimeSlot slot, {int dayCount = 1}) async {
     setState(() => _isLoading = true);
     final response = await http.post(
-      Uri.parse("${apiUrl}clients/blockBookingSlot"),
+      Uri.parse("${apiUrl}clients/blockBookingSlots"),
       headers: {
         'Authorization': 'Bearer ${widget.token}',
         'Content-Type': 'application/json',
@@ -181,10 +178,60 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
         'booking_date': slot.start.toIso8601String().split('T')[0],
         'start_time': AppFormat.formatHM(slot.start),
         'end_time': AppFormat.formatHM(slot.end),
+        'day_count': dayCount
       }),
     );
 
-    setState(() => _isLoading = false); 
+    setState(() => _isLoading = false);
+
+    final data = jsonDecode(response.body);
+    final message = data['error'] ?? data['message'] ?? "تم تحديث الفترات";
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, textAlign: TextAlign.center),
+        backgroundColor: Colors.redAccent,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+
+    if (response.statusCode == 200) {
+      setState(() => _needsRefresh = true);
+      await _refreshBookings();
+    }
+  }
+
+  Future<void> _markMonthly(TimeSlot slot) async {
+    setState(() => _isLoading = true);
+
+    final response = await http.post(
+      Uri.parse("${apiUrl}clients/blockMonthlyBookingSlots"),
+      headers: {
+        'Authorization': 'Bearer ${widget.token}',
+        'Content-Type': 'application/json',
+        'x-api-key': '${dotenv.env['API_KEY']}'
+      },
+      body: jsonEncode({
+        'field_id': widget.field['field_id'],
+        'start_date': slot.start.toIso8601String().split('T')[0],
+        'start_time': AppFormat.formatHM(slot.start),
+        'end_time': AppFormat.formatHM(slot.end),
+      }),
+    );
+
+    setState(() => _isLoading = false);
+
+    final data = jsonDecode(response.body);
+    print(data);
+    final message = data['error'] ?? data['message'] ?? "تم تحديث الفترات";
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, textAlign: TextAlign.center),
+        backgroundColor: Colors.redAccent,
+        duration: const Duration(seconds: 3),
+      ),
+    );
 
     if (response.statusCode == 200) {
       setState(() => _needsRefresh = true);
@@ -194,7 +241,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
 
   Future<void> _markAvailable(TimeSlot slot) async {
     setState(() => _isLoading = true);
-    final url = Uri.parse("${apiUrl}clients/unblockBookingSlot");
+    final url = Uri.parse("${apiUrl}clients/unblockBookingSlots");
     final request = http.Request("DELETE", url)
       ..headers.addAll({
         'Authorization': 'Bearer ${widget.token}',
@@ -208,9 +255,21 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
         "end_time": AppFormat.formatHM(slot.end),
       });
 
-    final response = await request.send();
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
 
-    setState(() => _isLoading = false); 
+    setState(() => _isLoading = false);
+
+    final data = jsonDecode(response.body);
+    final message = data['error'] ?? data['message'] ?? "تم تحديث الفترات";
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, textAlign: TextAlign.center),
+        backgroundColor: Colors.redAccent,
+        duration: const Duration(seconds: 3),
+      ),
+    );
 
     if (response.statusCode == 200) {
       setState(() => _needsRefresh = true);
@@ -233,7 +292,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
               "أوقات الحجز - ${AppFormat.formatDateArabic(widget.date)}",
               style: const TextStyle(color: Colors.white),
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: Colors.redAccent,
             iconTheme: const IconThemeData(color: Colors.white),
           ),
           backgroundColor: Colors.red.shade50,
@@ -295,23 +354,109 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
                           : null,
                       onTap: () async {
                         if (status == "free") {
-                          bool? mark = await showDialog(
+                          int selectedDays = 1;
+                          final dayCount = await showDialog<int>(
                             context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text("تحديد كغير متاح؟"),
-                              actions: [
-                                TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text("لا")),
-                                TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    child: const Text("نعم")),
-                              ],
-                            ),
+                            builder: (_) {
+                              return StatefulBuilder(
+                                builder: (context, setStateDialog) => AlertDialog(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  title: const Text(
+                                    "تحديد كغير متاح؟",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.redAccent,
+                                          minimumSize: const Size.fromHeight(40),
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                        onPressed: () async {
+                                          Navigator.pop(context, -1); // Monthly block
+                                        },
+                                        child: const Text(
+                                          "اقفال شهري لهذه الفترة",
+                                          style: TextStyle(color: Colors.white),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Divider(),
+                                      const Text("او"),
+                                      const Divider(),
+                                      const SizedBox(height: 16),
+                                      const Text("اختر عدد الأيام لقفل الفترة (1 - 30):"),
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red.shade50,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: Colors.redAccent, width: 1.5),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
+                                              onPressed: () {
+                                                if (selectedDays > 1) {
+                                                  setStateDialog(() => selectedDays--);
+                                                }
+                                              },
+                                            ),
+                                            Text(
+                                              "$selectedDays",
+                                              style: const TextStyle(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.redAccent,
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.add_circle_outline, color: Colors.redAccent),
+                                              onPressed: () {
+                                                if (selectedDays < 30) {
+                                                  setStateDialog(() => selectedDays++);
+                                                }
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  actionsAlignment: MainAxisAlignment.spaceBetween,
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, null),
+                                      child: const Text("إلغاء", style: TextStyle(color: Colors.grey)),
+                                    ),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.redAccent,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      onPressed: () => Navigator.pop(context, selectedDays),
+                                      child: const Text("تأكيد", style: TextStyle(color: Colors.white)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
                           );
-                          if (mark == true) await _markUnavailable(slot);
+
+                          if (dayCount == -1) {
+                            await _markMonthly(slot);
+                          } else if (dayCount != null) {
+                            await _markUnavailable(slot, dayCount: dayCount);
+                          }
                         } else if (isUnavailable) {
                           bool? mark = await showDialog(
                             context: context,
@@ -376,7 +521,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
                   );
                 },
               ),
-              if (_isLoading) // ✅ Loading overlay
+              if (_isLoading)
                 Container(
                   color: Colors.black45,
                   child: const Center(

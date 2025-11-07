@@ -89,6 +89,8 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
         setState(() {
           fields = data["fields"];
           loading = false;
+          print(fields);
+          print("WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW");
         });
       } else {
         final data = json.decode(res.body);
@@ -135,7 +137,7 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
         backgroundColor: Colors.red[50],
         appBar: AppBar(
           elevation: 0,
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.redAccent,
           title: Row(
             children: [
               Expanded(
@@ -155,7 +157,7 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
                   borderRadius: BorderRadius.circular(5),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.red.withOpacity(0.3),
+                      color: Colors.redAccent.withOpacity(0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 3),
                     )
@@ -164,12 +166,12 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
                 child: Row(
                   children: [
                     const Icon(Icons.account_balance_wallet,
-                        color: Colors.red, size: 24),
+                        color: Colors.redAccent, size: 24),
                     const SizedBox(width: 4),
                     Text(
                       walletBalance,
                       style: const TextStyle(
-                          color: Colors.red, fontWeight: FontWeight.bold),
+                          color: Colors.redAccent, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -180,13 +182,13 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
         body: AuthService.isLoggedIn
             ? loading
                 ? const Center(
-                    child: CircularProgressIndicator(color: Colors.red))
+                    child: CircularProgressIndicator(color: Colors.redAccent))
                 : errorMessage != null
                     ? Center(
                         child: Text(
                           errorMessage!,
                           style:
-                              const TextStyle(color: Colors.red, fontSize: 16),
+                              const TextStyle(color: Colors.redAccent, fontSize: 16),
                         ),
                       )
                     : ListView.builder(
@@ -216,7 +218,7 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
                                 color: Colors.white,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.red.withOpacity(0.1),
+                                    color: Colors.redAccent.withOpacity(0.1),
                                     blurRadius: 6,
                                     offset: const Offset(0, 3),
                                   )
@@ -260,7 +262,7 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
                                                   const Icon(
                                                       Icons
                                                           .attach_money_rounded,
-                                                      color: Colors.red,
+                                                      color: Colors.redAccent,
                                                       size: 18),
                                                   const SizedBox(width: 4),
                                                   Text(
@@ -310,7 +312,7 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
                                                 style: const TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w500,
-                                                    color: Colors.red),
+                                                    color: Colors.redAccent),
                                               ),
                                             ),
                                             const SizedBox(height: 8),
@@ -332,7 +334,7 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
                                                 }
                                               },
                                               icon: const Icon(Icons.settings,
-                                                  color: Colors.red, size: 32),
+                                                  color: Colors.redAccent, size: 32),
                                             ),
                                           ],
                                         ),
@@ -356,7 +358,7 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
                     });
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
+                    backgroundColor: Colors.redAccent,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 28, vertical: 14),
                     shape: RoundedRectangleBorder(

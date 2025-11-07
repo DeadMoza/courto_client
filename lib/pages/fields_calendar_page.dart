@@ -142,19 +142,21 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
-    final lastDay = today.add(const Duration(days: 120));
+    final firstDay = DateTime(today.year, today.month - 2, 1);
+    final lastDay = DateTime(today.year, today.month + 2, 31);
+
 
     return Directionality(
       textDirection: ui.TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
           title: Text("تقويم ${widget.field['field_name']}"),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.redAccent,
           foregroundColor: Colors.white,
         ),
         backgroundColor: Colors.red.shade50,
         body: loading
-            ? const Center(child: CircularProgressIndicator(color: Colors.red))
+            ? const Center(child: CircularProgressIndicator(color: Colors.redAccent))
             : SafeArea(
                 child: NestedScrollView(
                   headerSliverBuilder:
@@ -165,7 +167,7 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
                           padding: const EdgeInsets.all(16),
                           child: TableCalendar(
                             locale: 'ar',
-                            firstDay: today,
+                            firstDay: firstDay,
                             lastDay: lastDay,
                             focusedDay: focusedDay,
                             rowHeight: 52,

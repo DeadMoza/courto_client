@@ -1,9 +1,9 @@
 import 'dart:convert';
+import 'package:client_app/pages/home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../services/auth_service.dart';
-import '../pages/fields_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -61,7 +61,7 @@ class _LoginPageState extends State<LoginPage> {
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const FieldsPage()),
+          MaterialPageRoute(builder: (_) => const HomePage()),
         );
       } else {
         String message = "فشل تسجيل الدخول";
@@ -81,7 +81,7 @@ class _LoginPageState extends State<LoginPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message, textDirection: TextDirection.rtl),
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.redAccent,
       ),
     );
   }
@@ -112,7 +112,7 @@ class _LoginPageState extends State<LoginPage> {
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
-                      color: Colors.red,
+                      color: Colors.redAccent,
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -123,7 +123,7 @@ class _LoginPageState extends State<LoginPage> {
                     keyboardType: TextInputType.phone,
                     decoration: InputDecoration(
                       labelText: "رقم الهاتف",
-                      prefixIcon: const Icon(Icons.phone, color: Colors.red),
+                      prefixIcon: const Icon(Icons.phone, color: Colors.redAccent),
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
@@ -140,7 +140,7 @@ class _LoginPageState extends State<LoginPage> {
                     obscureText: !showPassword,
                     decoration: InputDecoration(
                       labelText: "كلمة المرور",
-                      prefixIcon: const Icon(Icons.lock, color: Colors.red),
+                      prefixIcon: const Icon(Icons.lock, color: Colors.redAccent),
                       suffixIcon: IconButton(
                         icon: Icon(
                           showPassword
@@ -169,7 +169,7 @@ class _LoginPageState extends State<LoginPage> {
                     child: ElevatedButton(
                       onPressed: loading ? null : login,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
+                        backgroundColor: Colors.redAccent,
                         disabledBackgroundColor: Colors.red[300],
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -196,7 +196,7 @@ class _LoginPageState extends State<LoginPage> {
                     onPressed: () {},
                     child: const Text(
                       "هل نسيت كلمة المرور؟",
-                      style: TextStyle(color: Colors.red),
+                      style: TextStyle(color: Colors.redAccent),
                     ),
                   ),
                 ],

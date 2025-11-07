@@ -126,7 +126,7 @@ Future<Map<String, dynamic>> _acceptBooking() async {
       child: Scaffold(
         appBar: AppBar(
           title: const Text("تفاصيل الحجز", style: TextStyle(color: Colors.white)),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.redAccent,
           iconTheme: const IconThemeData(color: Colors.white),
         ),
         backgroundColor: Colors.red.shade50,
@@ -203,7 +203,7 @@ class BookingInfoCard extends StatelessWidget {
           if (booking != null) ...[
             Row(
               children: [
-                const Icon(Icons.person, color: Colors.red),
+                const Icon(Icons.person, color: Colors.redAccent),
                 const SizedBox(width: 8),
                 Expanded(
                     child: Text(booking!['booking_user'] ?? "مستخدم غير معروف",
@@ -213,7 +213,7 @@ class BookingInfoCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.phone, color: Colors.red),
+                const Icon(Icons.phone, color: Colors.redAccent),
                 const SizedBox(width: 8),
                 SelectableText(
                   booking!['booking_user_phone_number'] ?? "بدون رقم هاتف",
@@ -263,7 +263,7 @@ class BookingTimeCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          const Icon(Icons.access_time, color: Colors.red, size: 32),
+          const Icon(Icons.access_time, color: Colors.redAccent, size: 32),
           const SizedBox(height: 8),
           Text("${AppFormat.formatTime(start)} - ${AppFormat.formatTime(end)}",
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
@@ -279,7 +279,7 @@ class BookingTimeCard extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.red,
+                  color: Colors.redAccent,
                 ),
               ),
             ),
@@ -321,7 +321,7 @@ class BookingNotesCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.red,
+                    color: Colors.redAccent,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -369,7 +369,7 @@ class BookingActionsRow extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.redAccent,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -382,7 +382,7 @@ class BookingActionsRow extends StatelessWidget {
         Expanded(
           child: ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: Colors.redAccent,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
             ),
@@ -416,12 +416,12 @@ class BookingActionsRow extends StatelessWidget {
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               backgroundColor: Colors.white,
-              foregroundColor: Colors.red,
-              side: const BorderSide(color: Colors.red),
+              foregroundColor: Colors.redAccent,
+              side: const BorderSide(color: Colors.redAccent),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
             ),
-            icon: const Icon(Icons.close, color: Colors.red),
+            icon: const Icon(Icons.close, color: Colors.redAccent),
             label: const Text("رفض"),
             onPressed: () async {
               final confirm = await showDialog(
