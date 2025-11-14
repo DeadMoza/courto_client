@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:client_app/pages/home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 import '../services/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
@@ -26,8 +28,8 @@ class _LoginPageState extends State<LoginPage> {
     final url = Uri.parse("${apiUrl}clients/login");
 
     try {
-      final deviceId = AuthService.playerId;
-      final platform = AuthService.platform;
+      String? deviceId = AuthService.playerId ?? await OneSignal.User.getOnesignalId();
+      String? platform = AuthService.platform ?? (Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : 'unknown');
       String phone = phoneController.text.trim();
 
       if (phone.startsWith("09")) {
@@ -56,7 +58,7 @@ class _LoginPageState extends State<LoginPage> {
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
 
-        await AuthService.saveSession(data["client"], data["token"]);
+        await AuthService.saveSession(data["client"], data["token"], deviceId, platform);
 
         if (!mounted) return;
         Navigator.pushReplacement(

@@ -37,46 +37,52 @@ class BookingDetailsPage extends StatelessWidget {
     required this.field,
     this.token,
     this.isManualBlocked = false,
-    
   });
 
-Future<Map<String, dynamic>> _acceptBooking() async {
-  if (booking == null) return {'success': false, 'message': "بيانات الحجز غير متوفرة"};
-  try {
-    final response = await http.patch(
-      Uri.parse("${apiUrl}clients/acceptBooking/${booking!['booking_id']}/${booking!['user_id']}"),
-      headers: {'Authorization': 'Bearer $token', 'x-api-key': '${dotenv.env['API_KEY']}'},
-    );
+  // Helper to simulate the monthly dates (replace with actual API call/logic)
+  List<DateTime> _getMonthlyDates() {
+    if (booking?['booking_is_monthly'] != true) return []; // Check the flag
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+    // Placeholder: Generate 4 dates, one month apart, starting from 'start'
+    return List<DateTime>.generate(4, (index) {
+      return DateTime(start.year, start.month + index, start.day, start.hour, start.minute);
+    });
+  }
 
+  Future<Map<String, dynamic>> _acceptBooking() async {
+    if (booking == null) return {'success': false, 'message': "بيانات الحجز غير متوفرة"};
+    try {
+      final response = await http.patch(
+        Uri.parse("${apiUrl}clients/acceptBooking/${booking!['booking_id']}/${booking!['user_id']}"),
+        headers: {'Authorization': 'Bearer $token', 'x-api-key': '${dotenv.env['API_KEY']}'},
+      );
 
-      // Update AuthService wallet balance if available
-      if (data['booking']?['new_wallet_balance'] != null) {
-        final newBalance = double.tryParse(data['booking']['new_wallet_balance'].toString()) ?? 0;
-        if (AuthService.clientData != null) {
-          AuthService.clientData!['wallet_balance'] = newBalance;
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('clientData', jsonEncode(AuthService.clientData));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
 
+        // Update AuthService wallet balance if available
+        if (data['booking']?['new_wallet_balance'] != null) {
+          final newBalance = double.tryParse(data['booking']['new_wallet_balance'].toString()) ?? 0;
+          if (AuthService.clientData != null) {
+            AuthService.clientData!['wallet_balance'] = newBalance;
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('clientData', jsonEncode(AuthService.clientData));
+          }
         }
+
+        return {
+          'success': true,
+          'message': 'تم قبول الحجز بنجاح',
+          'new_wallet_balance': AuthService.clientData?['wallet_balance']
+        };
       }
 
-      return {
-        'success': true,
-        'message': 'تم قبول الحجز بنجاح',
-        'new_wallet_balance': AuthService.clientData?['wallet_balance']
-      };
+      final error = jsonDecode(response.body);
+      return {'success': false, 'message': error['error'] ?? 'حدث خطأ غير متوقع'};
+    } catch (e) {
+      return {'success': false, 'message': 'فشل الاتصال'};
     }
-
-    final error = jsonDecode(response.body);
-    return {'success': false, 'message': error['error'] ?? 'حدث خطأ غير متوقع'};
-  } catch (e) {
-    return {'success': false, 'message': 'فشل الاتصال'};
   }
-}
-
 
   Future<Map<String, dynamic>> _rejectBooking() async {
     if (booking == null) return {'success': false, 'message': "بيانات الحجز غير متوفرة"};
@@ -120,6 +126,10 @@ Future<Map<String, dynamic>> _acceptBooking() async {
     final status = parseStatus(
       booking?['booking_status'] ?? (isManualBlocked ? "unavailable" : "free"),
     );
+    
+    // Check for monthly booking flag
+    final isMonthly = booking?['booking_is_monthly'] == true;
+    final monthlyDates = isMonthly ? _getMonthlyDates() : <DateTime>[];
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -144,12 +154,20 @@ Future<Map<String, dynamic>> _acceptBooking() async {
                   statusIcon: _statusIcon(status),
                 ),
                 const SizedBox(height: 16),
+                // Display the time/date for the current instance
                 BookingTimeCard(
                   start: start,
                   end: end,
                   price: booking,
+                  isMonthly: isMonthly, // Pass the flag
                 ),
                 const SizedBox(height: 16),
+                // Display the list of dates for monthly bookings
+                if (isMonthly && monthlyDates.isNotEmpty)
+                  MonthlyBookingDatesCard(monthlyDates: monthlyDates),
+                if (isMonthly && monthlyDates.isNotEmpty)
+                  const SizedBox(height: 16),
+                // Original notes card
                 if (booking?['booking_notes'] != null &&
                     booking!['booking_notes'].toString().trim().isNotEmpty)
                   BookingNotesCard(notes: booking!['booking_notes']),
@@ -171,7 +189,7 @@ Future<Map<String, dynamic>> _acceptBooking() async {
   }
 }
 
-// ---------------- Booking Info Card ----------------
+// ---------------- Booking Info Card (No change needed here for the feature) ----------------
 class BookingInfoCard extends StatelessWidget {
   final Map<String, dynamic> field;
   final Map<String, dynamic>? booking;
@@ -243,18 +261,28 @@ class BookingInfoCard extends StatelessWidget {
   }
 }
 
-// ---------------- Booking Time Card ----------------
+// ---------------- Booking Time Card (Modified to display monthly info) ----------------
 class BookingTimeCard extends StatelessWidget {
   final DateTime start;
   final DateTime end;
   final dynamic price;
+  final bool isMonthly; // New field
 
-  const BookingTimeCard({super.key, required this.start, required this.end, this.price});
+  const BookingTimeCard({
+    super.key,
+    required this.start,
+    required this.end,
+    this.price,
+    this.isMonthly = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final bookingPrice = price is Map ? double.tryParse(price['booking_price'].toString()) : null;
     final remainingPrice = price is Map ? price['booking_remaining_price'] : null;
+    
+    // Check if the booking price is effectively zero or null
+    final showBookingPrice = bookingPrice != null && bookingPrice > 0;
 
     return Card(
       color: Colors.white,
@@ -263,19 +291,36 @@ class BookingTimeCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          const Icon(Icons.access_time, color: Colors.redAccent, size: 32),
-          const SizedBox(height: 8),
-          Text("${AppFormat.formatTime(start)} - ${AppFormat.formatTime(end)}",
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(isMonthly ? Icons.calendar_month : Icons.access_time,
+                  color: Colors.redAccent, size: 32),
+              if (isMonthly)
+                const SizedBox(width: 8),
+              if (isMonthly)
+                const Text("حجز شهري متكرر",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.redAccent)),
+            ],
+          ),
+          if (!isMonthly) // Only show the time for the single instance if it's NOT monthly
+            const SizedBox(height: 8),
+          if (!isMonthly)
+            Text("${AppFormat.formatTime(start)} - ${AppFormat.formatTime(end)}",
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           Text(AppFormat.formatDateArabic(start),
               style: const TextStyle(fontSize: 16, color: Colors.grey)),
-          const SizedBox(height: 20),
-          if (bookingPrice != null)
+          
+          // Only show price if bookingPrice is not null AND greater than 0
+          if (showBookingPrice)
+            const SizedBox(height: 20),
+            
+          if (showBookingPrice)
             Align(
               alignment: Alignment.centerRight,
               child: Text(
-                "سعر الحجز: ${(bookingPrice / 2).toStringAsFixed(2)} دينار",
+                "سعر الحجز: ${(bookingPrice).toStringAsFixed(2)} دينار",
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -283,11 +328,13 @@ class BookingTimeCard extends StatelessWidget {
                 ),
               ),
             ),
+            
+          // Show remaining price if available
           if (remainingPrice != null)
             Align(
               alignment: Alignment.centerRight,
               child: Text("المتبقي: $remainingPrice دينار",
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)), // Changed color to blue
             ),
         ]),
       ),
@@ -295,7 +342,54 @@ class BookingTimeCard extends StatelessWidget {
   }
 }
 
-// ---------------- Booking Notes Card ----------------
+// ---------------- New: Monthly Booking Dates Card ----------------
+class MonthlyBookingDatesCard extends StatelessWidget {
+  final List<DateTime> monthlyDates;
+  const MonthlyBookingDatesCard({super.key, required this.monthlyDates});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "🗓️ مواعيد الحجز الشهرية:",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.redAccent,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...monthlyDates.map((date) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.date_range, color: Colors.grey, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      AppFormat.formatDateArabic(date),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------- Booking Notes Card (No change needed here) ----------------
 class BookingNotesCard extends StatelessWidget {
   final String notes;
   const BookingNotesCard({super.key, required this.notes});
@@ -342,7 +436,7 @@ class BookingNotesCard extends StatelessWidget {
   }
 }
 
-// ---------------- Booking Actions Row ----------------
+// ---------------- Booking Actions Row (No change needed here) ----------------
 class BookingActionsRow extends StatelessWidget {
   final Future<Map<String, dynamic>> Function() onAccept;
   final Future<Map<String, dynamic>> Function() onReject;

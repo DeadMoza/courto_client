@@ -97,8 +97,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
 
     final difference = closeDt.difference(openDt).inHours;
 
-    // Must be between 4 and 16 hours
-    return difference >= 4 && difference <= 16;
+    return difference >= 4 && difference <= 23;
   }
 
   Future<void> saveField() async {
@@ -112,7 +111,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
 
     // Validate time difference
     if (!_isValidTimeDifference()) {
-      _showError("يجب أن يكون الفرق بين وقت الفتح والإغلاق من 4 إلى 16 ساعة");
+      _showError("يجب أن يكون الفرق بين وقت الفتح والإغلاق من 4 إلى 23 ساعة");
       return;
     }
 

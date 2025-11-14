@@ -11,11 +11,9 @@ class AuthService {
   static String? token;
   static String? playerId;
   static String? platform;
-  
-
 
   /// Save session after successful signup/login
-static Future<void> saveSession(Map<String, dynamic> client, String jwtToken) async {
+static Future<void> saveSession(Map<String, dynamic> client, String jwtToken, String? deviceId, String? platform) async {
   final prefs = await SharedPreferences.getInstance();
 
   await prefs.setString('sessionToken', jwtToken);
@@ -25,11 +23,8 @@ static Future<void> saveSession(Map<String, dynamic> client, String jwtToken) as
   isLoggedIn = true;
 
   if (client['id'] != null) {
-    await OneSignal.login(client['id'].toString());
 
-    // Try to get playerId from OneSignal, fallback to existing value
-    final oneSignalId = await OneSignal.User.getOnesignalId();
-    playerId = oneSignalId ?? playerId; // keep main.dart value if OneSignal returns null
+    playerId = deviceId;
     if (playerId != null) await prefs.setString('playerId', playerId!);
 
     // Detect platform (if not already set)
@@ -38,7 +33,7 @@ static Future<void> saveSession(Map<String, dynamic> client, String jwtToken) as
         : Platform.isIOS
             ? 'ios'
             : 'unknown';
-    await prefs.setString('platform', platform!);
+    await prefs.setString('platform', platform);
   }
 }
 
@@ -56,27 +51,9 @@ static Future<void> saveSession(Map<String, dynamic> client, String jwtToken) as
       isLoggedIn = true;
 
       if (clientData?['id'] != null) {
-        await OneSignal.login(clientData!['id'].toString());
 
-        // refresh playerId if missing
-        if (playerId == null) {
-          final id = await OneSignal.User.getOnesignalId();
-          if (id != null) {
-            playerId = id;
-            await prefs.setString('playerId', playerId!);
-
-            platform = Platform.isAndroid
-                ? 'android'
-                : Platform.isIOS
-                    ? 'ios'
-                    : 'unknown';
-            await prefs.setString('platform', platform!);
-          }
-        }
 
         await refreshWalletBalance();
-        print(clientData);
-        print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
       }
     } else {
       await clearSession();
@@ -134,7 +111,7 @@ static Future<void> saveSession(Map<String, dynamic> client, String jwtToken) as
 
     try {
       final response = await http.post(
-        Uri.parse("${apiUrl}clients/getUserWallet"),
+        Uri.parse("${apiUrl}clients/getClientWallet"),
         headers: {
           "Content-Type": "application/json",
           "authorization": "Bearer $token",

@@ -86,11 +86,11 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
 
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
+        print(data);
+        print("grr");
         setState(() {
           fields = data["fields"];
           loading = false;
-          print(fields);
-          print("WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW");
         });
       } else {
         final data = json.decode(res.body);

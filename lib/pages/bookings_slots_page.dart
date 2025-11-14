@@ -5,6 +5,9 @@ import 'booking_details_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+// Assuming TimeSlot class and widget imports are correct and available
+// (They are included in the provided code)
+
 class BookingSlotsPage extends StatefulWidget {
   final Map<String, dynamic> field;
   final DateTime date;
@@ -31,6 +34,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
   bool _needsRefresh = false;
   bool _isLoading = false;
   final apiUrl = dotenv.env['API_URL'];
+  List<TimeSlot> _conflictingSlots = [];
 
   @override
   void initState() {
@@ -73,24 +77,37 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
     _generateSlots();
     backgrounds = List.filled(slots.length, null);
     bookedByList = List.filled(slots.length, null);
+    _conflictingSlots = []; 
 
     for (int i = 0; i < slots.length; i++) {
       final slot = slots[i];
       final booking = _findBookingForSlot(slot);
+      final conflictingBookings = _findAllConflictingBookings(slot);
 
-      if (booking != null) {
+      if (conflictingBookings.length > 1) {
+        backgrounds[i] = Colors.red[200];
+        if (!_conflictingSlots.contains(slot)) {
+          _conflictingSlots.add(slot);
+        }
+  
+        bookedByList[i] = "تعارض (${conflictingBookings.length})";
+      } else if (booking != null) {
         String status = booking['booking_status'] ?? "";
+        bool isMonthly = (booking['booking_is_monthly'] == true);
         if (status == "cancelled") status = "free";
 
+        String monthlySuffix = isMonthly ? " - شهري" : "";
+        String booker = booking['booking_user'] ?? "";
+
         if (status == "pending") {
-          backgrounds[i] = Colors.yellow[200];
-          bookedByList[i] = booking['booking_user'] ?? "";
+          backgrounds[i] = isMonthly ? Colors.amber[200] : Colors.yellow[200];
+          bookedByList[i] = "$booker$monthlySuffix";
         } else if (status == "confirmed") {
-          backgrounds[i] = Colors.blue[100];
-          bookedByList[i] = booking['booking_user'] ?? "";
+          backgrounds[i] = isMonthly ? Colors.deepPurple[100] : Colors.blue[100];
+          bookedByList[i] = "$booker$monthlySuffix";
         } else if (status == "unavailable") {
           backgrounds[i] = Colors.grey[400];
-          bookedByList[i] = null;
+          bookedByList[i] = "غير متاح"; 
         } else {
           backgrounds[i] = Colors.white;
           bookedByList[i] = null;
@@ -144,7 +161,50 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
     }
   }
 
+  List<Map<String, dynamic>> _findAllConflictingBookings(TimeSlot slot) {
+    List<Map<String, dynamic>> foundBookings = [];
+    for (var b in currentBookings) {
+      try {
+        final bookingDate = DateTime.parse(b['booking_date']);
+        final startParts = (b['start_time'] as String).split(':');
+        final endParts = (b['end_time'] as String).split(':');
+
+        final start = DateTime(
+          bookingDate.year,
+          bookingDate.month,
+          bookingDate.day,
+          int.parse(startParts[0]),
+          int.parse(startParts[1]),
+        );
+
+        var end = DateTime(
+          bookingDate.year,
+          bookingDate.month,
+          bookingDate.day,
+          int.parse(endParts[0]),
+          int.parse(endParts[1]),
+        );
+
+        if (end.isBefore(start)) {
+          end = end.add(const Duration(days: 1));
+        }
+
+        final slotStartAdjusted = slot.start.isBefore(start)
+            ? slot.start.add(const Duration(days: 1))
+            : slot.start;
+
+        if (slotStartAdjusted.isAtSameMomentAs(start) ||
+            (slotStartAdjusted.isAfter(start) && slotStartAdjusted.isBefore(end))) {
+          foundBookings.add(b as Map<String, dynamic>);
+        }
+      } catch (e) {
+      }
+    }
+    return foundBookings;
+  }
+
   Future<void> _refreshBookings() async {
+    setState(() => _isLoading = true);
     final dateString = widget.date.toIso8601String().split('T')[0];
     final response = await http.get(
       Uri.parse(
@@ -159,9 +219,10 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
       final data = jsonDecode(response.body);
       setState(() {
         currentBookings = data["bookings"] as List<dynamic>;
+        _trackBookings();
       });
-      _trackBookings();
     }
+    setState(() => _isLoading = false);
   }
 
   Future<void> _markUnavailable(TimeSlot slot, {int dayCount = 1}) async {
@@ -222,7 +283,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
     setState(() => _isLoading = false);
 
     final data = jsonDecode(response.body);
-    print(data);
+    // print(data); // Removed print for cleaner code
     final message = data['error'] ?? data['message'] ?? "تم تحديث الفترات";
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -277,6 +338,141 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
     }
   }
 
+  // --- MODIFIED: Conflict Details Dialog to show monthly status ---
+  Future<void> _showConflictDetailsDialog(TimeSlot slot) async {
+    final conflictingBookings = _findAllConflictingBookings(slot);
+
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Center(
+          child: Text(
+            // Show the number of conflicting bookings in the title
+            "تعارض (${conflictingBookings.length}) - ${AppFormat.formatTime(slot.start)} - ${AppFormat.formatTime(slot.end)}",
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: conflictingBookings.length,
+            itemBuilder: (context, index) {
+              final booking = conflictingBookings[index];
+              final bookerName = booking['booking_user'] ?? "مستخدم غير معروف";
+              final bookingId = booking['booking_id'] ?? "N/A";
+              final isMonthly = (booking['booking_is_monthly'] == true); // Check for monthly
+
+              // Determine status and color
+              String status = booking['booking_status'] ?? "";
+
+              Color statusColor;
+              String statusText;
+              if (status == "pending") {
+                statusColor = Colors.yellow.shade700;
+                statusText = "معلّق";
+              } else if (status == "confirmed") {
+                statusColor = Colors.blue.shade700;
+                statusText = "مؤكّد";
+              } else {
+                statusColor = Colors.grey.shade700;
+                statusText = "غير محدد";
+              }
+
+              // Add monthly status to the text
+              String subtitleText = "الحالة: $statusText";
+              if (isMonthly) {
+                subtitleText += " | شهري";
+              }
+
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                child: ListTile(
+                  tileColor: Colors.red.shade50,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: const BorderSide(color: Colors.redAccent, width: 0.5),
+                  ),
+                  title: Text(
+                    bookerName,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    textDirection: TextDirection.rtl,
+                  ),
+                  subtitle: Text(
+                    subtitleText,
+                    style: TextStyle(color: statusColor, fontSize: 13),
+                    textDirection: TextDirection.rtl,
+                  ),
+                  trailing: Text(
+                    "ID: $bookingId",
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 10),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(context); // Close the conflict dialog
+                    await _navigateToBookingDetails(booking);
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("إغلاق", style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- NEW: Helper function to navigate to details and handle refresh ---
+  Future<void> _navigateToBookingDetails(Map<String, dynamic> bookingToView) async {
+    final bookingDate = DateTime.parse(bookingToView['booking_date']);
+    final startParts = (bookingToView['start_time'] as String).split(':');
+    final endParts = (bookingToView['end_time'] as String).split(':');
+
+    var bookingStart = DateTime(
+      bookingDate.year,
+      bookingDate.month,
+      bookingDate.day,
+      int.parse(startParts[0]),
+      int.parse(startParts[1]),
+    );
+    var bookingEnd = DateTime(
+      bookingDate.year,
+      bookingDate.month,
+      bookingDate.day,
+      int.parse(endParts[0]),
+      int.parse(endParts[1]),
+    );
+
+    // Handle overnight bookings if applicable
+    if (bookingEnd.isBefore(bookingStart)) {
+      bookingEnd = bookingEnd.add(const Duration(days: 1));
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BookingDetailsPage(
+          booking: bookingToView,
+          start: bookingStart,
+          end: bookingEnd,
+          field: widget.field,
+          token: widget.token,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      setState(() => _needsRefresh = true);
+      await _refreshBookings();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -289,7 +485,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
         child: Scaffold(
           appBar: AppBar(
             title: Text(
-              "أوقات الحجز - ${AppFormat.formatDateArabic(widget.date)}",
+              AppFormat.formatDateArabic(widget.date),
               style: const TextStyle(color: Colors.white),
             ),
             backgroundColor: Colors.redAccent,
@@ -300,24 +496,85 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
             children: [
               ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: slots.length,
+                itemCount: slots.length + (_conflictingSlots.isNotEmpty ? 1 : 0),
                 itemBuilder: (context, i) {
-                  final slot = slots[i];
+                  if (_conflictingSlots.isNotEmpty && i == 0) {
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade400),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "توجد حجوزات متعارضة",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          ..._conflictingSlots.map((slot) {
+                            final conflictingBookings = _findAllConflictingBookings(slot);
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                "${AppFormat.formatTime(slot.start)} - ${AppFormat.formatTime(slot.end)}: ${conflictingBookings.length} حجوزات متداخلة",
+                                style: TextStyle(color: Colors.red.shade700),
+                                textAlign: TextAlign.center,
+                              ),
+                            );
+                          }).toList(),
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              "يرجى مراجعة هذه الفترات. عند النقر على الفترة، سيتم عرض قائمة بالحجوزات المتعارضة للمراجعة.",
+                              style: TextStyle(fontSize: 12, color: Colors.red),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final adjustedIndex = i - (_conflictingSlots.isNotEmpty ? 1 : 0);
+                  final slot = slots[adjustedIndex];
                   final booking = _findBookingForSlot(slot);
 
-                  String status = booking?['booking_status'] ?? "free";
-                  if (status == "cancelled") status = "free";
+                  String status = booking?['booking_status'] ?? "";
+                  if (status == "cancelled") status = "";
 
                   bool isBooked = status == "pending" || status == "confirmed";
                   bool isUnavailable = status == "unavailable";
-                  String bookedBy = booking?['booking_user'] ?? "";
 
-                  bool sameAsPrev = i > 0 &&
-                      bookedByList[i] != null &&
-                      bookedByList[i] == bookedByList[i - 1];
-                  bool sameAsNext = i < slots.length - 1 &&
-                      bookedByList[i] != null &&
-                      bookedByList[i] == bookedByList[i + 1];
+                  bool isConflicting = _conflictingSlots.contains(slot);
+           
+                  String? subtitleText;
+                  if (isConflicting) {
+                      final conflictingBookingsCount = _findAllConflictingBookings(slot).length;
+                      subtitleText = "تعارض: ${conflictingBookingsCount} حجوزات";
+                  } else if (isBooked) {
+                      bool isMonthly = (booking?['booking_is_monthly'] == true);
+                      String bookerName = booking?['booking_user'] ?? "";
+                      String monthlySuffix = isMonthly ? " - شهري" : "";
+                      subtitleText = "محجوز من قبل ${bookerName}${monthlySuffix}";
+                  } else if (isUnavailable) {
+                      subtitleText = "غير متاح";
+                  }
+
+
+                  // Existing logic for grouping adjacent slots
+                  bool sameAsPrev = adjustedIndex > 0 &&
+                      bookedByList[adjustedIndex] != null &&
+                      bookedByList[adjustedIndex] == bookedByList[adjustedIndex - 1];
+                  bool sameAsNext = adjustedIndex < slots.length - 1 &&
+                      bookedByList[adjustedIndex] != null &&
+                      bookedByList[adjustedIndex] == bookedByList[adjustedIndex + 1];
 
                   BorderRadius radius;
                   if (sameAsPrev && sameAsNext) {
@@ -337,7 +594,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
                   return Container(
                     margin: EdgeInsets.only(bottom: sameAsNext ? 0 : 6),
                     decoration: BoxDecoration(
-                      color: backgrounds[i] ?? Colors.white,
+                      color: backgrounds[adjustedIndex] ?? Colors.white,
                       borderRadius: radius,
                     ),
                     child: ListTile(
@@ -349,11 +606,18 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
-                      subtitle: isBooked && !sameAsPrev
-                          ? Center(child: Text("محجوز من قبل $bookedBy"))
+                      // Only show subtitle if it's the start of a group or a single slot
+                      subtitle: !sameAsPrev && subtitleText != null
+                          ? Center(child: Text(subtitleText))
                           : null,
                       onTap: () async {
-                        if (status == "free") {
+                        if (isConflicting) {
+                          // --- Handle conflict tap ---
+                          await _showConflictDetailsDialog(slot);
+                          return; // Stop execution here
+                        }
+
+                        if (status == "free" || status == "") {
                           int selectedDays = 1;
                           final dayCount = await showDialog<int>(
                             context: context,
@@ -476,45 +740,12 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
                           );
                           if (mark == true) await _markAvailable(slot);
                         } else {
-                          final bookingDate =
-                              DateTime.parse(booking!['booking_date']);
-                          final startParts =
-                              (booking['start_time'] as String).split(':');
-                          final endParts =
-                              (booking['end_time'] as String).split(':');
+                          final bookingToView = _findBookingForSlot(slot);
+                          if (bookingToView == null) return; // Should not happen for booked slots
 
-                          final bookingStart = DateTime(
-                            bookingDate.year,
-                            bookingDate.month,
-                            bookingDate.day,
-                            int.parse(startParts[0]),
-                            int.parse(startParts[1]),
-                          );
-                          final bookingEnd = DateTime(
-                            bookingDate.year,
-                            bookingDate.month,
-                            bookingDate.day,
-                            int.parse(endParts[0]),
-                            int.parse(endParts[1]),
-                          );
-
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => BookingDetailsPage(
-                                booking: booking,
-                                start: bookingStart,
-                                end: bookingEnd,
-                                field: widget.field,
-                                token: widget.token,
-                              ),
-                            ),
-                          );
-
-                          if (result == true) {
-                            setState(() => _needsRefresh = true);
-                            await _refreshBookings();
-                          }
+                          // --- Re-using the new helper function ---
+                          await _navigateToBookingDetails(bookingToView);
+                          // --- End Re-using the new helper function ---
                         }
                       },
                     ),
@@ -540,4 +771,15 @@ class TimeSlot {
   final DateTime start;
   final DateTime end;
   TimeSlot({required this.start, required this.end});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TimeSlot &&
+          runtimeType == other.runtimeType &&
+          start == other.start &&
+          end == other.end;
+
+  @override
+  int get hashCode => start.hashCode ^ end.hashCode;
 }

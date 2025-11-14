@@ -48,6 +48,8 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
 
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
+        print(data);
+        print("bookinggssssssssssssssssssssssssss");
         final Map<DateTime, List<dynamic>> temp = {};
 
         for (var booking in data["bookings"]) {
@@ -85,6 +87,8 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
 
   Color _fillForDay(DateTime day) {
     final bookings = _getBookingsForDay(day);
+
+    // Only consider relevant bookings
     final relevant = bookings.where((b) {
       final status = (b['booking_status']?.toString().toLowerCase() ?? '');
       return status == 'confirmed' || status == 'pending';
@@ -92,16 +96,27 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
 
     if (relevant.isEmpty) return Colors.transparent;
 
-    final confirmed = relevant
+    // Check if this day has any monthly bookings
+    final hasMonthly = relevant.any(
+      (b) => (b['booking_is_monthly']?.toString().toLowerCase() == 'true'),
+    );
+
+    // Count confirmed bookings
+    final confirmedCount = relevant
         .where((b) => (b['booking_status']?.toString().toLowerCase() ?? '') == 'confirmed')
         .length;
 
-    if (confirmed == relevant.length) {
-      return Colors.blue; 
+    final allConfirmed = confirmedCount == relevant.length;
+
+    if (allConfirmed) {
+      // All confirmed
+      return hasMonthly ? Colors.deepPurple : Colors.blue;
     } else {
-      return Colors.orangeAccent; 
+      // Some or all pending
+      return hasMonthly ? Colors.amber : Colors.orangeAccent;
     }
   }
+
 
   Widget _buildDayCell(
     DateTime day, {
@@ -288,10 +303,15 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
                                               .toLowerCase() ??
                                           '');
 
-                                      Color dotColor =
-                                          status == 'confirmed'
-                                              ? Colors.blue
-                                              : Colors.orangeAccent;
+                                        final isMonthly = (booking['booking_is_monthly']?.toString().toLowerCase() == 'true');
+
+                                        Color dotColor;
+                                        if (status == 'confirmed') {
+                                          dotColor = isMonthly ? Colors.deepPurple : Colors.blue;
+                                        } else {
+                                          dotColor = isMonthly ? Colors.amber : Colors.orangeAccent;
+                                        }
+
 
                                       return Container(
                                         width: 6,
@@ -313,64 +333,100 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
                       ),
                     ];
                   },
-                  body: ListView(
-                    children: selectedDay == null
-                        ? [
-                            const Center(
-                                child: Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text("اختر يومًا لرؤية الحجوزات",
-                                  style: TextStyle(fontSize: 16)),
-                            ))
-                          ]
-                        : _getBookingsForDay(selectedDay!).map((booking) {
-                            final bookingTime =
-                                "${formatTime(booking['start_time'])} - ${formatTime(booking['end_time'])}";
-                            final user = booking['booking_user'] ?? '';
-                            final status = booking['booking_status'] ?? '';
-
-                            return Container(
-                              margin: const EdgeInsets.symmetric(
-                                  vertical: 4, horizontal: 16),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "الوقت: $bookingTime",
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    "المستخدم: $user",
-                                    style: const TextStyle(color: Colors.black87),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    "الحالة: ${AppFormat.translateStatus(status)}",
-                                    style: const TextStyle(color: Colors.black54),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
+                  body: Column(
+  children: [
+    Expanded(
+      child: ListView(
+        children: selectedDay == null
+            ? [
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text("اختر يومًا لرؤية الحجوزات",
+                        style: TextStyle(fontSize: 16)),
                   ),
                 ),
+              ]
+            : _getBookingsForDay(selectedDay!).map((booking) {
+                final bookingTime =
+                    "${formatTime(booking['start_time'])} - ${formatTime(booking['end_time'])}";
+                final user = booking['booking_user'] ?? '';
+                final status = booking['booking_status'] ?? '';
+
+                return Container(
+                  margin:
+                      const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "الوقت: $bookingTime",
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 4),
+                      Text("المستخدم: $user",
+                          style: const TextStyle(color: Colors.black87)),
+                      const SizedBox(height: 2),
+                      Text(
+                        "الحالة: ${AppFormat.translateStatus(status)}",
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+      ),
+    ),
+
+    _buildLegend(),
+  ],
+),
+
+                ),
+
               ),
       ),
     );
+    
   }
+  Widget _buildLegend() {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+    child: Wrap(
+      spacing: 12,
+      runSpacing: 6,
+      children: [
+        _legendItem(Colors.blue, 'حجز يومي مؤكد'),
+        _legendItem(Colors.orangeAccent, 'حجز يومي قيد الانتظار'),
+        _legendItem(Colors.deepPurple, 'حجز شهري مؤكد'),
+        _legendItem(Colors.amber, 'حجز شهري قيد الانتظار'),
+      ],
+    ),
+  );
+}
+
+Widget _legendItem(Color color, String label) {
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 6),
+      Text(label, style: const TextStyle(fontSize: 13)),
+    ],
+  );
+}
+
 }
