@@ -260,17 +260,40 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
                                               Row(
                                                 children: [
                                                   const Icon(
-                                                      Icons
-                                                          .attach_money_rounded,
+                                                      Icons.attach_money_rounded,
                                                       color: Colors.redAccent,
                                                       size: 18),
                                                   const SizedBox(width: 4),
-                                                  Text(
-                                                    "${field["field_price"] ?? '0'} / الساعة",
-                                                    style: const TextStyle(
+                                                  field["field_has_discount"]
+                                                  ? Row(
+                                                      children: [
+                                                        Text(
+                                                          "${field["field_price_after_discount"]} / الساعة",
+                                                          style: const TextStyle(
+                                                            color: Colors.black54,
+                                                            fontSize: 15,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 6),
+                                                        Text(
+                                                          field["field_price"],
+                                                          style: const TextStyle(
+                                                            color: Colors.grey,
+                                                            fontSize: 14,
+                                                            decoration: TextDecoration.lineThrough,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    )
+                                                  : Text(
+                                                      "${field["field_price"]} / الساعة",
+                                                      style: const TextStyle(
+                                                        color: Colors.black54,
                                                         fontSize: 15,
-                                                        color: Colors.black54),
-                                                  ),
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    )
                                                 ],
                                               ),
                                               const SizedBox(height: 6),

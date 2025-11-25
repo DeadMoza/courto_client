@@ -103,6 +103,38 @@ class BookingDetailsPage extends StatelessWidget {
     }
   }
 
+  Future<Map<String, dynamic>> _cancelBooking() async {
+  if (booking == null) {
+    return {'success': false, 'message': "بيانات الحجز غير متوفرة"};
+  }
+
+  try {
+    final response = await http.delete(
+      Uri.parse("${apiUrl}clients/cancelBooking"),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'x-api-key': '${dotenv.env['API_KEY']}',
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode({
+        "booking_id": booking!['booking_id'],
+        "client_id": AuthService.clientData?['id'],
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'message': data['message'] ?? "تم إلغاء الحجز"};
+    }
+
+    return {'success': false, 'message': data['error'] ?? "حدث خطأ"};
+  } catch (e) {
+    return {'success': false, 'message': "فشل الاتصال"};
+  }
+}
+
+
   Color _statusColor(BookingStatus status) {
     const map = {
       BookingStatus.confirmed: Colors.blue,
@@ -175,15 +207,81 @@ class BookingDetailsPage extends StatelessWidget {
             ),
           ),
         ),
-        bottomNavigationBar: (status == BookingStatus.pending)
-            ? Padding(
-                padding: const EdgeInsets.all(16),
-                child: BookingActionsRow(
-                  onAccept: _acceptBooking,
-                  onReject: _rejectBooking,
-                ),
-              )
-            : null,
+bottomNavigationBar: Builder(
+  builder: (context) {
+    final status = parseStatus(
+      booking?['booking_status'] ?? (isManualBlocked ? "unavailable" : "free"),
+    );
+
+    // Show only if booking is confirmed
+    final isConfirmed = status == BookingStatus.confirmed;
+
+    // Current time is before start time
+    final now = DateTime.now();
+    final canCancelBeforeMatch = now.isBefore(start);
+
+    if (isConfirmed && canCancelBeforeMatch) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.redAccent,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(5)),
+          ),
+          icon: const Icon(Icons.cancel, color: Colors.white),
+          label: const Text("إلغاء الحجز", style: TextStyle(color: Colors.white)),
+          onPressed: () async {
+            final confirm = await showDialog(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text("هل تريد إلغاء هذا الحجز؟"),
+                content: const Text("لن تتمكن من التراجع عن هذه العملية."),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text("لا")),
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text("نعم")),
+                ],
+              ),
+            );
+
+            if (confirm == true) {
+              final result = await _cancelBooking();
+              if (result['success']) {
+                Navigator.pop(context, true);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(result['message'])),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(result['message'])),
+                );
+              }
+            }
+          },
+        ),
+      );
+    }
+
+    // Original pending buttons
+    if (status == BookingStatus.pending) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: BookingActionsRow(
+          onAccept: _acceptBooking,
+          onReject: _rejectBooking,
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  },
+),
+
       ),
     );
   }
@@ -208,6 +306,7 @@ class BookingInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     return Card(
       color: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
