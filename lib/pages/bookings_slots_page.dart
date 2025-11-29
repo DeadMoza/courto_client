@@ -223,11 +223,11 @@
                 filled: true,
                 fillColor: Colors.red.shade50,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(5),
                   borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(5),
                   borderSide: const BorderSide(color: Colors.red, width: 1.5),
                 ),
               ),
@@ -243,11 +243,11 @@
                   filled: true,
                   fillColor: Colors.red.shade50,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(5),
                     borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(5),
                     borderSide: const BorderSide(color: Colors.red, width: 1.5),
                   ),
                 ),

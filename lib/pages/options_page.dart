@@ -5,9 +5,9 @@ import 'login_page.dart';
 class OptionsPage extends StatelessWidget {
   const OptionsPage({super.key});
 
-  void _showLogoutConfirmation(BuildContext context) {
+  void _showLogoutConfirmation(BuildContext parentContext) {
     showDialog(
-      context: context,
+      context: parentContext,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text("تسجيل الخروج؟"),
@@ -20,7 +20,7 @@ class OptionsPage extends StatelessWidget {
               child: const Text('نعم', style: TextStyle(color: Colors.red)),
               onPressed: () {
                 Navigator.of(context).pop(); // Close dialog first
-                _logout(context);
+                _logout(parentContext);
               },
             ),
           ],

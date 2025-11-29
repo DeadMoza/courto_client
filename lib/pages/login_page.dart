@@ -129,7 +129,7 @@ class _LoginPageState extends State<LoginPage> {
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(5),
                         borderSide: BorderSide.none,
                       ),
                     ),
@@ -157,7 +157,7 @@ class _LoginPageState extends State<LoginPage> {
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(5),
                         borderSide: BorderSide.none,
                       ),
                     ),
@@ -174,7 +174,7 @@ class _LoginPageState extends State<LoginPage> {
                         backgroundColor: Colors.redAccent,
                         disabledBackgroundColor: Colors.red[300],
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(5),
                         ),
                       ),
                       child: loading
@@ -190,15 +190,6 @@ class _LoginPageState extends State<LoginPage> {
                               "تسجيل الدخول",
                               style: TextStyle(fontSize: 16, color: Colors.white),
                             ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  TextButton(
-                    onPressed: () {},
-                    child: const Text(
-                      "هل نسيت كلمة المرور؟",
-                      style: TextStyle(color: Colors.redAccent),
                     ),
                   ),
                 ],

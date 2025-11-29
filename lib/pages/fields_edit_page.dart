@@ -187,7 +187,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(5),
         borderSide: BorderSide.none,
       ),
       contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
@@ -334,7 +334,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.redAccent,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(5),
                           ),
                         ),
                         child: const Text(

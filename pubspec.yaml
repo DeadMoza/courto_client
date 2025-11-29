@@ -23,6 +23,7 @@ dependencies:
   onesignal_flutter: ^5.3.4
   flutter_dotenv: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  package_rename: ^1.10.0
 
 dev_dependencies:
   flutter_test:
@@ -56,3 +57,14 @@ flutter_launcher_icons:
   adaptive_icon_background: "#FFFFEBEE"  # or a color hex
   adaptive_icon_foreground: "assets/images/courtoManagerLogo.png"
   remove_alpha_ios: true
+
+
+package_rename_config:
+  android:
+    app_name: "courto manager"
+    package_name: "ly.courto.client"
+
+  ios:
+    app_name: "courto manager"
+    bundle_name: "courto"
+    package_name: "ly.courto.client"
