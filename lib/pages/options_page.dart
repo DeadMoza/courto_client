@@ -1,3 +1,4 @@
+import 'package:client_app/pages/invoices_page.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'login_page.dart';
@@ -60,9 +61,10 @@ class OptionsPage extends StatelessWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.support_agent_rounded, color: Colors.redAccent),
-              title: const Text("المساعدة و الدعم"),
+              title: const Text("الفواتير"),
               onTap: () {
-                // TODO: open profile page later
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const InvoicesPage()));
+
               },
             ),
             ListTile(
