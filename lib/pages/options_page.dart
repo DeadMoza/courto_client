@@ -1,4 +1,5 @@
 import 'package:client_app/pages/invoices_page.dart';
+import 'package:client_app/pages/policy_page.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'login_page.dart';
@@ -60,7 +61,7 @@ class OptionsPage extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           children: [
             ListTile(
-              leading: const Icon(Icons.support_agent_rounded, color: Colors.redAccent),
+              leading: const Icon(Icons.receipt_long, color: Colors.redAccent),
               title: const Text("الفواتير"),
               onTap: () {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const InvoicesPage()));
@@ -71,7 +72,7 @@ class OptionsPage extends StatelessWidget {
               leading: const Icon(Icons.policy, color: Colors.redAccent),
               title: const Text("شروط الاستخدام"),
               onTap: () {
-                
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const PolicyPage()));
               },
             ),
             const Divider(),
