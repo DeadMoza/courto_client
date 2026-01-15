@@ -19,7 +19,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
   late TextEditingController contactController;
   late TextEditingController descriptionController;
   bool isAvailable = true;
-  bool autoAccept = false; // ✅ New field
+  bool autoAccept = false; 
   bool loading = false;
 
   TimeOfDay? openTime;
@@ -34,7 +34,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
     contactController = TextEditingController(text: widget.field["field_contact_number"] ?? "");
     descriptionController = TextEditingController(text: widget.field["field_description"] ?? "");
     isAvailable = widget.field["field_is_available"] ?? true;
-    autoAccept = widget.field["auto_accept"] ?? false; // ✅ Initialize new field
+    autoAccept = widget.field["field_auto_accept"] ?? false; 
 
     openTime = _parseTime(widget.field["field_open_time"]);
     closeTime = _parseTime(widget.field["field_close_time"]);
@@ -148,7 +148,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
           "field_contact": phone,
           "field_description": descriptionController.text,
           "field_is_available": isAvailable,
-          "field_auto_accept": autoAccept, // ✅ Send new value
+          "field_auto_accept": autoAccept, 
         }),
       );
 
