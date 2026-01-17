@@ -113,7 +113,7 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
       return hasMonthly ? Colors.deepPurple : Colors.blue;
     } else {
       // Some or all pending
-      return hasMonthly ? Colors.amber : Colors.orangeAccent;
+      return hasMonthly ? Colors.amberAccent : Colors.orangeAccent;
     }
   }
 
@@ -309,7 +309,7 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
                                         if (status == 'confirmed') {
                                           dotColor = isMonthly ? Colors.deepPurple : Colors.blue;
                                         } else {
-                                          dotColor = isMonthly ? Colors.amber : Colors.orangeAccent;
+                                          dotColor = isMonthly ? Colors.amberAccent : Colors.orangeAccent;
                                         }
 
 
@@ -412,7 +412,7 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
         _legendItem(Colors.blue, 'حجز يومي مؤكد'),
         _legendItem(Colors.orangeAccent, 'حجز يومي قيد الانتظار'),
         _legendItem(Colors.deepPurple, 'حجز شهري مؤكد'),
-        _legendItem(Colors.amber, 'حجز شهري قيد الانتظار'),
+        _legendItem(Colors.amberAccent, 'حجز شهري قيد الانتظار'),
       ],
     ),
   );
