@@ -264,8 +264,7 @@ class BookingDetailsPage extends StatelessWidget {
                             ),
                           ),
                         ),
-                    const SizedBox(height: 30),
-                    const Text("تفاصيل المستخدم:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+
                     const SizedBox(height: 10),
 
 
@@ -282,11 +281,10 @@ class BookingDetailsPage extends StatelessWidget {
                       size: 18,
                     ),
 
-                    const Divider(height: 30, thickness: 1),
+                     const SizedBox(height: 10),
 
-                    const SizedBox(height: 10),
-                    const Text("التفاصيل المالية:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 10),
+                     const Divider(height: 10, thickness: 1),
+                     const SizedBox(height: 10),
 
 
                     _buildDetailRow(

@@ -260,10 +260,7 @@
         actions: [
           TextButton(
             child: const Text("رجوع"),
-            onPressed: () => Navigator.pop(context, {
-              "name": null,
-              "phone": null,
-            }),
+            onPressed: () => Navigator.pop(context),
           ),
           TextButton(
             child: const Text("تأكيد"),
@@ -300,6 +297,7 @@
         });
       }
       setState(() => _isLoading = false);
+
     }
 
     Future<void> _markUnavailable(TimeSlot slot, {int dayCount = 1}) async {
@@ -364,7 +362,6 @@
       setState(() => _isLoading = false);
 
       final data = jsonDecode(response.body);
-      // print(data); // Removed print for cleaner code
       final message = data['error'] ?? data['message'] ?? "تم تحديث الفترات";
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -662,12 +659,20 @@
 
 
                     // Existing logic for grouping adjacent slots
-                    bool sameAsPrev = adjustedIndex > 0 &&
-                        bookedByList[adjustedIndex] != null &&
-                        bookedByList[adjustedIndex] == bookedByList[adjustedIndex - 1];
-                    bool sameAsNext = adjustedIndex < slots.length - 1 &&
-                        bookedByList[adjustedIndex] != null &&
-                        bookedByList[adjustedIndex] == bookedByList[adjustedIndex + 1];
+                    // ✅ Do NOT merge unavailable slots (grey) so guest name/phone stays visible on every slot
+                    bool sameAsPrev = false;
+                    bool sameAsNext = false;
+
+                    if (!isUnavailable) {
+                      sameAsPrev = adjustedIndex > 0 &&
+                          bookedByList[adjustedIndex] != null &&
+                          bookedByList[adjustedIndex] == bookedByList[adjustedIndex - 1];
+
+                      sameAsNext = adjustedIndex < slots.length - 1 &&
+                          bookedByList[adjustedIndex] != null &&
+                          bookedByList[adjustedIndex] == bookedByList[adjustedIndex + 1];
+                    }
+
 
                     BorderRadius radius;
                     if (sameAsPrev && sameAsNext) {
