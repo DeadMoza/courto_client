@@ -48,8 +48,7 @@ class _FieldsCalendarPageState extends State<FieldsCalendarPage> {
 
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
-        print(data);
-        print("bookinggssssssssssssssssssssssssss");
+  
         final Map<DateTime, List<dynamic>> temp = {};
 
         for (var booking in data["bookings"]) {

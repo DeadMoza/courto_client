@@ -71,25 +71,72 @@ class BookingDetailsPage extends StatelessWidget {
     }
   }
 
-  Future<Map<String, dynamic>> _rejectBooking() async {
-    try {
-      if (booking == null) return {'success': false, 'message': "بيانات غير كافية"};
-      final response = await http.delete(
-        Uri.parse("${apiUrl}clients/rejectBooking/${booking!['booking_id']}/${booking!['user_id']}"),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-api-key': dotenv.env['API_KEY']!,
-        },
-      );
-      final data = jsonDecode(response.body);
-      return {
-        'success': response.statusCode == 200,
-        'message': data['message'] ?? "تم الرفض"
-      };
-    } catch (e) {
-      return {'success': false, 'message': "فشل الاتصال"};
+
+Future<String?> _rejectDialog(BuildContext context) async {
+  final controller = TextEditingController();
+
+  return await showDialog<String>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text(" إدخال سبب الرفض"),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          TextField(
+            controller: controller,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              hintText: "اكتب السبب هنا...",
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, null),
+          child: const Text("إلغاء"),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context, controller.text.trim());
+          },
+          child: const Text("تأكيد"),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<Map<String, dynamic>> _rejectBooking(String reason) async {
+  try {
+    if (booking == null) {
+      return {'success': false, 'message': "بيانات غير كافية"};
     }
+
+    final response = await http.delete(
+      Uri.parse("${apiUrl}clients/rejectBooking/${booking!['booking_id']}/${booking!['user_id']}"),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'x-api-key': dotenv.env['API_KEY']!,
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode({
+        "reason": reason,
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+
+    return {
+      'success': response.statusCode == 200,
+      'message': data['message'] ?? "تم الرفض"
+    };
+  } catch (e) {
+    return {'success': false, 'message': "فشل الاتصال"};
   }
+}
 
   Future<Map<String, dynamic>> _cancelBooking() async {
     try {
@@ -401,9 +448,10 @@ class BookingDetailsPage extends StatelessWidget {
                         color: Colors.grey.shade800,
                         icon: Icons.close,
                         handler: () async {
-                          final confirm = await _confirmDialog(context, "رفض الحجز؟");
-                          if (confirm) {
-                            final res = await _rejectBooking();
+                          final reason = await _rejectDialog(context);
+
+                          if (reason != null) {
+                            final res = await _rejectBooking(reason);
                             _snack(context, res['message']);
                             Navigator.pop(context, true);
                           }
