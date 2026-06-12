@@ -3,6 +3,7 @@ import 'package:client_app/pages/policy_page.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'login_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class OptionsPage extends StatelessWidget {
   const OptionsPage({super.key});
@@ -31,6 +32,14 @@ class OptionsPage extends StatelessWidget {
     );
   }
 
+  Future<void> _callSupport() async {
+  final Uri phoneUri = Uri(scheme: 'tel', path: '0928082025');
+
+  if (await canLaunchUrl(phoneUri)) {
+    await launchUrl(phoneUri);
+  }
+}
+
     void _logout(BuildContext context) async {
     // Perform session clear
     await AuthService.clearSession();
@@ -48,7 +57,16 @@ class OptionsPage extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: Colors.red[50],
+          backgroundColor: Colors.redAccent[50],
+  floatingActionButton: FloatingActionButton.extended(
+    onPressed: _callSupport,
+    backgroundColor: Colors.redAccent,
+    icon: const Icon(Icons.phone, color: Colors.white),
+    label: const Text(
+      "الدعم الفني",
+      style: TextStyle(color: Colors.white),
+    ),
+  ),
         appBar: AppBar(
           title: const Text(
             "الخيارات",
