@@ -1,16 +1,27 @@
-# client_app
+# Courto Manager (client_app)
 
-A new Flutter project.
+Flutter app for football field owners to manage their fields, bookings, and invoices on Courto.
+
+## Features
+
+- Login / authentication
+- View and manage fields
+- Field calendar and booking slots
+- Booking details and cancellation
+- Invoices
+- Push notifications
+- Arabic date/time formatting and status labels
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+1. Install [Flutter](https://docs.flutter.dev/get-started/install) (SDK ^3.8.1).
+2. Get dependencies:
+   ```
+   flutter pub get
+   ```
+3. Add a `.env` file in the project root with the required environment variables (e.g. .env.example).
+4. Run the app:
+   ```
+   flutter run
+   ```
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
