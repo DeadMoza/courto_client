@@ -1100,6 +1100,11 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
   List<dynamic> currentBookings = [];
   List<dynamic> currentDiscounts = [];
 
+  // Standing rules an admin set on this field: the time range is off the
+  // calendar on every day. Read-only here - only an admin can change them,
+  // but the owner still needs to know why a slot is unsellable.
+  List<dynamic> hiddenSlots = [];
+
   bool _needsRefresh = false;
   bool _isLoading = false;
   final apiUrl = dotenv.env['API_URL'];
@@ -1116,9 +1121,61 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
   Future<void> _initializePage() async {
     setState(() => _isLoading = true);
     await _loadDiscounts();
+    await _loadHiddenSlots();
     currentBookings = List.from(widget.bookings);
     _trackBookings();
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadHiddenSlots() async {
+    try {
+      final res = await http.get(
+        Uri.parse("${apiUrl}clients/getHiddenSlots/${widget.field['field_id']}"),
+        headers: {
+          'Authorization': 'Bearer ${widget.token}',
+          'x-api-key': '${dotenv.env['API_KEY']}'
+        },
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        hiddenSlots = data['hidden_slots'] ?? [];
+      }
+    } catch (_) {
+      hiddenSlots = [];
+    }
+  }
+
+  // The pieces a daily-repeating window occupies inside one day. A window
+  // whose end is at or before its start ran past midnight, so it comes back
+  // as two pieces; end == start means the whole day.
+  List<List<int>> _dailyPieces(int startMin, int endMin) {
+    final a = startMin % (24 * 60);
+    final b = endMin % (24 * 60);
+    if (b > a) return [[a, b]];
+    if (b == a) return [[0, 24 * 60]];
+    return [[a, 24 * 60], [0, b]];
+  }
+
+  /// The standing rule covering [slot], if any. Half-open, so a slot ending
+  /// exactly when a rule starts is untouched.
+  Map<String, dynamic>? _hiddenRuleForSlot(TimeSlot slot) {
+    final slotStart = slot.start.hour * 60 + slot.start.minute;
+    var slotEnd = slot.end.hour * 60 + slot.end.minute;
+    if (slotEnd <= slotStart) slotEnd += 24 * 60;
+    final slotPieces = _dailyPieces(slotStart, slotEnd);
+
+    for (final h in hiddenSlots) {
+      final hs = _parseMinutes(h['start_time']);
+      final he = _parseMinutes(h['end_time']);
+      if (hs == null || he == null) continue;
+
+      final rulePieces = _dailyPieces(hs, he);
+      final overlaps = slotPieces.any(
+        (sp) => rulePieces.any((rp) => sp[0] < rp[1] && rp[0] < sp[1]),
+      );
+      if (overlaps) return h as Map<String, dynamic>;
+    }
+    return null;
   }
 
   @override
@@ -1130,22 +1187,79 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
     }
   }
 
+  // "HH:mm[:ss]" -> minutes since midnight. Null when unparseable.
+  int? _parseMinutes(dynamic raw) {
+    if (raw == null) return null;
+    final parts = raw.toString().split(':');
+    if (parts.length < 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+    return h * 60 + m;
+  }
+
+  // The field's slot size in minutes: 15, 30 or 60. Anything else (missing
+  // column, older API) falls back to the 1-hour grid this page used to assume.
+  int get _slotDuration {
+    final raw = int.tryParse(
+      widget.field['field_slot_duration']?.toString() ?? '',
+    );
+    return (raw == 15 || raw == 30 || raw == 60) ? raw! : 60;
+  }
+
+  // How many bookings this field runs at once in one slot. 1 is the old
+  // behaviour, where the first booking closed the slot for everyone.
+  int get _slotSeats {
+    final raw = int.tryParse(
+      widget.field['field_slot_seats']?.toString() ?? '',
+    );
+    return (raw != null && raw >= 1) ? raw : 1;
+  }
+
+  bool get _isMultiSeat => _slotSeats > 1;
+
+  // Bookings that actually hold a seat: a cancelled row holds nothing.
+  List<Map<String, dynamic>> _liveBookingsForSlot(TimeSlot slot) =>
+      _findAllConflictingBookings(slot)
+          .where((b) => b['booking_status'] != 'cancelled')
+          .toList();
+
+  // Seats gone. A closed slot can hold several seats in one row, so seats are
+  // summed rather than counted.
+  int _occupiedSeats(TimeSlot slot) {
+    var taken = 0;
+    for (final b in _liveBookingsForSlot(slot)) {
+      taken += int.tryParse(b['booking_seats']?.toString() ?? '') ?? 1;
+    }
+    return taken;
+  }
+
+  int _seatsLeft(TimeSlot slot) {
+    final left = _slotSeats - _occupiedSeats(slot);
+    return left < 0 ? 0 : left;
+  }
+
+  // Wall-clock time on the shown day; minutes past 24h roll into the next day,
+  // which is what an after-midnight slot needs.
+  DateTime _slotTime(int minutesFromMidnight) => DateTime(
+        widget.date.year,
+        widget.date.month,
+        widget.date.day,
+        0,
+        minutesFromMidnight,
+      );
+
   void _generateSlots() {
-    final openParts = (widget.field['field_open_time'] ?? '08:00').split(':');
-    final closeParts =
-        (widget.field['field_close_time'] ?? '20:00').split(':');
-    int openHour = int.parse(openParts[0]);
-    int closeHour = int.parse(closeParts[0]);
-    if (closeHour <= openHour) closeHour += 24;
+    final openMinutes = _parseMinutes(widget.field['field_open_time']) ?? 8 * 60;
+    int closeMinutes =
+        _parseMinutes(widget.field['field_close_time']) ?? 20 * 60;
+    if (closeMinutes <= openMinutes) closeMinutes += 24 * 60;
+
+    final step = _slotDuration;
 
     slots = [];
-    for (int hour = openHour; hour < closeHour; hour++) {
-      DateTime start = DateTime(
-          widget.date.year, widget.date.month, widget.date.day, hour % 24);
-      DateTime end = DateTime(widget.date.year, widget.date.month,
-          widget.date.day, (hour + 1) % 24);
-      if ((hour + 1) >= 24) end = end.add(const Duration(days: 1));
-      slots.add(TimeSlot(start: start, end: end));
+    for (int m = openMinutes; m + step <= closeMinutes; m += step) {
+      slots.add(TimeSlot(start: _slotTime(m), end: _slotTime(m + step)));
     }
   }
 
@@ -1193,18 +1307,23 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
 
   Map<String, dynamic>? _findDiscountForSlot(TimeSlot slot) {
     try {
-      final openParts =
-          (widget.field['field_open_time'] ?? '08:00').split(':');
-      final openHour = int.parse(openParts[0]);
-      final isAfterMidnight = slot.start.hour < openHour;
+      final openMinutes =
+          _parseMinutes(widget.field['field_open_time']) ?? 8 * 60;
+      final slotMinutes = slot.start.hour * 60 + slot.start.minute;
+      final isAfterMidnight = slotMinutes < openMinutes;
 
       return currentDiscounts.firstWhere((d) {
         final isNextDay = d['_isNextDay'] == true;
         if (isAfterMidnight != isNextDay) return false;
 
-        final startParts = (d['start_time'] as String).split(':');
-        return slot.start.hour == int.parse(startParts[0]) &&
-            slot.start.minute == int.parse(startParts[1]);
+        // Containment, not an exact start match: a discount created on the old
+        // 1-hour grid still covers every sub-slot of a 15/30-minute grid.
+        final dStart = _parseMinutes(d['start_time']);
+        var dEnd = _parseMinutes(d['end_time']);
+        if (dStart == null || dEnd == null) return false;
+        if (dEnd <= dStart) dEnd += 24 * 60;
+
+        return slotMinutes >= dStart && slotMinutes < dEnd;
       });
     } catch (_) {
       return null;
@@ -1221,12 +1340,31 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
       final slot = slots[i];
       final booking = _findBookingForSlot(slot);
       final discount = _findDiscountForSlot(slot);
-      final conflictingBookings = _findAllConflictingBookings(slot);
+      final live = _liveBookingsForSlot(slot);
+      final occupied = _occupiedSeats(slot);
+      final free = _seatsLeft(slot);
+      final hiddenRule = _hiddenRuleForSlot(slot);
 
-      if (conflictingBookings.length > 1) {
+      // A standing rule outranks everything: the slot is not for sale on any
+      // day, so bookings, seats and discounts are all beside the point.
+      if (hiddenRule != null) {
+        backgrounds[i] = Colors.deepPurple[50];
+        bookedByList[i] = "مخفية من التطبيق";
+      } else if (occupied > _slotSeats) {
+        // A conflict is over-subscription, not simply "more than one
+        // booking". On a 1-seat field those are the same thing, so a pitch
+        // still flags a double booking exactly as before.
         backgrounds[i] = Colors.red[200];
         if (!_conflictingSlots.contains(slot)) _conflictingSlots.add(slot);
-        bookedByList[i] = "تعارض (${conflictingBookings.length})";
+        bookedByList[i] = "تعارض ($occupied/$_slotSeats)";
+      } else if (_isMultiSeat && live.isNotEmpty && free > 0) {
+        // Partly sold but still bookable: must not look closed.
+        backgrounds[i] = Colors.teal[50];
+        bookedByList[i] = "$occupied/$_slotSeats - متبقي $free";
+      } else if (_isMultiSeat && live.length > 1) {
+        // Every seat sold, by several different bookings.
+        backgrounds[i] = Colors.blue[100];
+        bookedByList[i] = "مكتمل ($occupied/$_slotSeats)";
       } else if (booking != null) {
         String status = booking['booking_status'] ?? "";
         bool isMonthly = booking['booking_is_monthly'] == true;
@@ -1317,6 +1455,7 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
   Future<void> _refreshBookings() async {
     setState(() => _isLoading = true);
     await _loadDiscounts();
+    await _loadHiddenSlots();
     final dateString = widget.date.toIso8601String().split('T')[0];
     final response = await http.get(
       Uri.parse(
@@ -1969,6 +2108,228 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
     await _markUnavailable(slot, dayCount: 1);
   }
 
+  // A slot an admin took off the calendar. Read-only: the owner can see the
+  // rule and why it exists, but removing it is an admin action.
+  Future<void> _showHiddenSlotDialog(
+      TimeSlot slot, Map<String, dynamic> rule) async {
+    final reason = (rule['reason'] ?? '').toString().trim();
+    final shownAsBooked = rule['display_mode'] == 'booked';
+
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        title: Center(
+          child: Text(
+            "${AppFormat.formatTime(slot.start)} - ${AppFormat.formatTime(slot.end)}",
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "هذه الفترة مخفية من التطبيق في كل الأيام.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.bold),
+              textDirection: TextDirection.rtl,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              shownAsBooked
+                  ? "يراها المستخدمون كفترة محجوزة."
+                  : "لا يراها المستخدمون إطلاقاً.",
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.rtl,
+            ),
+            if (reason.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                "السبب: $reason",
+                textAlign: TextAlign.center,
+                textDirection: TextDirection.rtl,
+                style: const TextStyle(color: Colors.black54),
+              ),
+            ],
+            const SizedBox(height: 12),
+            const Text(
+              "للتعديل عليها يرجى التواصل مع الإدارة.",
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.rtl,
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("إغلاق", style: TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Shown for a slot several bookings share legitimately, which only happens
+  // on a field with more than one seat. Lists who is in, and - while seats are
+  // still free - offers the same actions a free slot has.
+  Future<void> _showSlotSeatsDialog(TimeSlot slot) async {
+    final live = _liveBookingsForSlot(slot);
+    final occupied = _occupiedSeats(slot);
+    final free = _seatsLeft(slot);
+
+    final action = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        title: Center(
+          child: Text(
+            "${AppFormat.formatTime(slot.start)} - ${AppFormat.formatTime(slot.end)}\n"
+            "$occupied من $_slotSeats مقاعد محجوزة",
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: live.length,
+            itemBuilder: (context, index) {
+              final booking = live[index];
+              final status = booking['booking_status'] ?? "";
+              final seats =
+                  int.tryParse(booking['booking_seats']?.toString() ?? '') ?? 1;
+              final isMonthly = booking['booking_is_monthly'] == true;
+
+              final String name;
+              final Color tint;
+              final String statusText;
+              if (status == "unavailable") {
+                final guest =
+                    (booking['booking_guest_name'] as String?)?.trim() ?? "";
+                name = guest.isNotEmpty ? guest : "مغلق";
+                tint = Colors.grey.shade200;
+                statusText = "غير متاح";
+              } else if (status == "pending") {
+                name = booking['booking_user'] ?? "مستخدم غير معروف";
+                tint = Colors.yellow.shade100;
+                statusText = "معلّق";
+              } else {
+                name = booking['booking_user'] ?? "مستخدم غير معروف";
+                tint = Colors.blue.shade50;
+                statusText = "مؤكّد";
+              }
+
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                child: ListTile(
+                  tileColor: tint,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  title: Text(name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      textDirection: TextDirection.rtl),
+                  subtitle: Text(
+                    "$statusText${isMonthly ? ' | شهري' : ''}"
+                    "${seats > 1 ? ' | $seats مقاعد' : ''}",
+                    style: const TextStyle(fontSize: 13),
+                    textDirection: TextDirection.rtl,
+                  ),
+                  onTap: () => Navigator.pop(context, "booking:$index"),
+                ),
+              );
+            },
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        actions: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (free > 0) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(5)),
+                    ),
+                    onPressed: () => Navigator.pop(context, "block"),
+                    child: Text("إغلاق المقاعد المتبقية ($free)",
+                        style: const TextStyle(color: Colors.white)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(5)),
+                    ),
+                    onPressed: () => Navigator.pop(context, "discount"),
+                    child: const Text("إضافة خصم",
+                        style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+                const SizedBox(height: 4),
+              ],
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context, null),
+                  child:
+                      const Text("إغلاق", style: TextStyle(color: Colors.grey)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    if (action == null) return;
+
+    if (action == "block") {
+      final guest = await _askGuestInfo();
+      if (guest == null) return;
+      guestName = guest["name"];
+      guestPhoneNumber = guest["phone"];
+      // No seat count is sent, so the backend takes every seat still free -
+      // the same "close this slot" meaning it has always had.
+      await _markUnavailable(slot, dayCount: 1);
+      return;
+    }
+
+    if (action == "discount") {
+      await _showAddDiscountDialog(slot);
+      return;
+    }
+
+    if (action.startsWith("booking:")) {
+      final booking = live[int.parse(action.substring("booking:".length))];
+
+      if (booking['booking_status'] == "unavailable") {
+        final choice = await _showUnavailableActionsDialog();
+        if (choice == "unblock") {
+          await _markAvailable(slot);
+        } else if (choice == "edit") {
+          await _editUnavailableOptionOne(slot, booking);
+        }
+        return;
+      }
+
+      await _navigateToBookingDetails(booking);
+    }
+  }
+
   Future<void> _showConflictDetailsDialog(TimeSlot slot) async {
     final conflictingBookings = _findAllConflictingBookings(slot);
     await showDialog(
@@ -2193,14 +2554,12 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
                                         color: Colors.red),
                                     textAlign: TextAlign.center),
                                 ..._conflictingSlots.map((slot) {
-                                  final count =
-                                      _findAllConflictingBookings(slot)
-                                          .length;
+                                  final count = _occupiedSeats(slot);
                                   return Padding(
                                     padding:
                                         const EdgeInsets.only(top: 4.0),
                                     child: Text(
-                                      "${AppFormat.formatTime(slot.start)} - ${AppFormat.formatTime(slot.end)}: $count حجوزات متداخلة",
+                                      "${AppFormat.formatTime(slot.start)} - ${AppFormat.formatTime(slot.end)}: $count حجوزات على $_slotSeats مقاعد",
                                       style: TextStyle(
                                           color: Colors.red.shade700),
                                       textAlign: TextAlign.center,
@@ -2232,22 +2591,62 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
                             booking?['booking_status'] ?? "";
                         if (status == "cancelled") status = "";
 
-                        final bool isBooked =
-                            status == "pending" || status == "confirmed";
-                        final bool isUnavailable =
+                        final live = _liveBookingsForSlot(slot);
+                        final occupied = _occupiedSeats(slot);
+                        final free = _seatsLeft(slot);
+                        final hiddenRule = _hiddenRuleForSlot(slot);
+                        final bool isHidden = hiddenRule != null;
+
+                        final bool isConflicting =
+                            !isHidden && _conflictingSlots.contains(slot);
+                        // Seats left on a multi-seat field: still open for
+                        // business, so it behaves like a free slot that also
+                        // knows who is already in.
+                        final bool isPartial = !isHidden &&
+                            !isConflicting &&
+                            _isMultiSeat &&
+                            live.isNotEmpty &&
+                            free > 0;
+                        // Sold out across several bookings: tapping has to ask
+                        // which one, there is no single booking to open.
+                        final bool isSharedFull = !isHidden &&
+                            !isConflicting &&
+                            !isPartial &&
+                            _isMultiSeat &&
+                            live.length > 1;
+
+                        final bool isBooked = !isHidden &&
+                            !isPartial &&
+                            !isSharedFull &&
+                            (status == "pending" || status == "confirmed");
+                        final bool isUnavailable = !isHidden &&
+                            !isPartial &&
+                            !isSharedFull &&
                             status == "unavailable";
-                        final bool isFreeWithDiscount =
+                        final bool isFreeWithDiscount = !isHidden &&
                             !isBooked &&
                                 !isUnavailable &&
+                                !isPartial &&
+                                !isSharedFull &&
                                 discount != null;
-                        final bool isConflicting =
-                            _conflictingSlots.contains(slot);
 
                         String? subtitleText;
-                        if (isConflicting) {
-                          final count =
-                              _findAllConflictingBookings(slot).length;
-                          subtitleText = "تعارض: $count حجوزات";
+                        if (isHidden) {
+                          final reason =
+                              (hiddenRule['reason'] ?? '').toString().trim();
+                          subtitleText = reason.isNotEmpty
+                              ? "مخفية من التطبيق • $reason"
+                              : "مخفية من التطبيق (كل الأيام)";
+                        } else if (isConflicting) {
+                          subtitleText =
+                              "تعارض: $occupied حجوزات على $_slotSeats مقاعد";
+                        } else if (isPartial) {
+                          subtitleText = discount != null
+                              ? "متبقي $free من $_slotSeats • خصم ${discount['booking_price']} د.ل"
+                              : "محجوز $occupied من $_slotSeats • متبقي $free";
+                        } else if (isSharedFull) {
+                          subtitleText =
+                              "مكتمل: $occupied من $_slotSeats مقاعد (${live.length} حجوزات)";
                         } else if (isBooked) {
                           final isMonthly =
                               booking?['booking_is_monthly'] == true;
@@ -2277,7 +2676,14 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
 
                         bool sameAsPrev = false;
                         bool sameAsNext = false;
-                        if (!isUnavailable && !isFreeWithDiscount) {
+                        // Seat labels are counts, so two unrelated slots can
+                        // read the same; merging them into one block would be
+                        // a lie about a single long booking.
+                        if (!isUnavailable &&
+                            !isFreeWithDiscount &&
+                            !isPartial &&
+                            !isSharedFull &&
+                            !isHidden) {
                           sameAsPrev = adjustedIndex > 0 &&
                               bookedByList[adjustedIndex] != null &&
                               bookedByList[adjustedIndex] ==
@@ -2338,8 +2744,23 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
                                   )
                                 : null,
                             onTap: () async {
+                              // Nothing to do here: only an admin can lift a
+                              // standing rule, so this just explains itself.
+                              if (isHidden) {
+                                await _showHiddenSlotDialog(slot, hiddenRule);
+                                return;
+                              }
+
                               if (isConflicting) {
                                 await _showConflictDetailsDialog(slot);
+                                return;
+                              }
+
+                              // Several bookings share this slot, so there is
+                              // no single one to open: show them and, when
+                              // seats are left, the actions for the rest.
+                              if (isPartial || isSharedFull) {
+                                await _showSlotSeatsDialog(slot);
                                 return;
                               }
 

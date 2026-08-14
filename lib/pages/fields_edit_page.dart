@@ -19,11 +19,20 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
   late TextEditingController contactController;
   late TextEditingController descriptionController;
   bool isAvailable = true;
-  bool autoAccept = false; 
+  bool autoAccept = false;
   bool loading = false;
 
   TimeOfDay? openTime;
   TimeOfDay? closeTime;
+
+  // Minutes per bookable slot: 15, 30 or 60. The open/close window is cut into
+  // pieces of this size everywhere slots are drawn.
+  int slotDuration = 60;
+
+  // How many bookings may share one slot. 1 means the first booking closes the
+  // slot; a karting track with 6 carts sells the same slot 6 times.
+  int slotSeats = 1;
+  late TextEditingController slotSeatsController;
 
   final apiUrl = dotenv.env['API_URL'];
 
@@ -38,6 +47,17 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
 
     openTime = _parseTime(widget.field["field_open_time"]);
     closeTime = _parseTime(widget.field["field_close_time"]);
+
+    final rawDuration =
+        int.tryParse(widget.field["field_slot_duration"]?.toString() ?? "");
+    if (rawDuration == 15 || rawDuration == 30 || rawDuration == 60) {
+      slotDuration = rawDuration!;
+    }
+
+    final rawSeats =
+        int.tryParse(widget.field["field_slot_seats"]?.toString() ?? "");
+    if (rawSeats != null && rawSeats >= 1) slotSeats = rawSeats;
+    slotSeatsController = TextEditingController(text: slotSeats.toString());
   }
 
   TimeOfDay? _parseTime(String? timeStr) {
@@ -148,7 +168,9 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
           "field_contact": phone,
           "field_description": descriptionController.text,
           "field_is_available": isAvailable,
-          "field_auto_accept": autoAccept, 
+          "field_auto_accept": autoAccept,
+          "field_slot_duration": slotDuration,
+          "field_slot_seats": slotSeats,
         }),
       );
 
@@ -199,6 +221,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
     priceController.dispose();
     contactController.dispose();
     descriptionController.dispose();
+    slotSeatsController.dispose();
     super.dispose();
   }
 
@@ -306,6 +329,43 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<int>(
+                      initialValue: slotDuration,
+                      decoration: _inputDecoration(
+                        "مدة الفترة",
+                        icon: Icons.timelapse,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 60, child: Text("60 دقيقة")),
+                        DropdownMenuItem(value: 30, child: Text("30 دقيقة")),
+                        DropdownMenuItem(value: 15, child: Text("15 دقيقة")),
+                      ],
+                      onChanged: (val) =>
+                          setState(() => slotDuration = val ?? slotDuration),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: slotSeatsController,
+                      keyboardType: TextInputType.number,
+                      decoration: _inputDecoration(
+                        "عدد الحجوزات في نفس الفترة",
+                        icon: Icons.event_seat,
+                      ),
+                      onChanged: (val) {
+                        final parsed = int.tryParse(val.trim());
+                        if (parsed != null && parsed >= 1 && parsed <= 100) {
+                          slotSeats = parsed;
+                        }
+                      },
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.only(top: 6, right: 4, left: 4),
+                      child: Text(
+                        "1 يعني أن أول حجز يغلق الفترة. أي رقم أكبر يسمح لهذا العدد من المستخدمين بحجز نفس الفترة (مثال: 6 كارتات).",
+                        style: TextStyle(color: Colors.black54, fontSize: 12),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextField(
