@@ -34,6 +34,18 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
   int slotSeats = 1;
   late TextEditingController slotSeatsController;
 
+  // Which booking frequencies this field sells. One has to stay on: a field
+  // selling neither is just an unavailable field, which isAvailable already
+  // covers. The DB enforces it as well, this only saves a round trip.
+  bool allowsDaily = true;
+  bool allowsMonthly = true;
+
+  // The full price of a 4-week subscription. Seeded from the daily price x 4
+  // when the field was created and independent of it since, so editing the
+  // price above does not move this. The monthly deposit is admin-only, exactly
+  // like the daily one.
+  late TextEditingController monthlyPriceController;
+
   final apiUrl = dotenv.env['API_URL'];
 
   @override
@@ -58,6 +70,12 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
         int.tryParse(widget.field["field_slot_seats"]?.toString() ?? "");
     if (rawSeats != null && rawSeats >= 1) slotSeats = rawSeats;
     slotSeatsController = TextEditingController(text: slotSeats.toString());
+
+    allowsDaily = widget.field["field_allows_daily"] ?? true;
+    allowsMonthly = widget.field["field_allows_monthly"] ?? true;
+    monthlyPriceController = TextEditingController(
+      text: widget.field["field_monthly_price"]?.toString() ?? "",
+    );
   }
 
   TimeOfDay? _parseTime(String? timeStr) {
@@ -135,6 +153,24 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
       return;
     }
 
+    if (!allowsDaily && !allowsMonthly) {
+      _showError("يجب تفعيل نوع حجز واحد على الأقل: يومي أو شهري");
+      return;
+    }
+
+    // Only sent when monthly is on and the box holds a usable number, so an
+    // emptied box leaves the stored price alone instead of zeroing it.
+    final monthlyPrice = allowsMonthly
+        ? double.tryParse(monthlyPriceController.text.trim())
+        : null;
+
+    if (allowsMonthly &&
+        monthlyPriceController.text.trim().isNotEmpty &&
+        (monthlyPrice == null || monthlyPrice <= 0)) {
+      _showError("السعر الشهري غير صالح");
+      return;
+    }
+
     setState(() {
       loading = true;
     });
@@ -171,6 +207,9 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
           "field_auto_accept": autoAccept,
           "field_slot_duration": slotDuration,
           "field_slot_seats": slotSeats,
+          "field_allows_daily": allowsDaily,
+          "field_allows_monthly": allowsMonthly,
+          if (monthlyPrice != null) "field_monthly_price": monthlyPrice,
         }),
       );
 
@@ -202,6 +241,86 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
     );
   }
 
+  // Daily / monthly toggles plus the monthly price. The last enabled type
+  // cannot be switched off - its checkbox goes disabled rather than throwing
+  // an error after the fact, so the rule is visible before it is broken.
+  Widget _buildBookingTypesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        CheckboxListTile(
+          title: const Text(
+            "الحجز اليومي",
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.redAccent,
+            ),
+          ),
+          subtitle: const Text(
+            "حجز فترة واحدة في يوم محدد.",
+            style: TextStyle(color: Colors.black54),
+          ),
+          value: allowsDaily,
+          activeColor: Colors.redAccent,
+          controlAffinity: ListTileControlAffinity.leading,
+          // Unticking the only remaining type would leave the field selling
+          // nothing, so it stays locked until the other one is on.
+          onChanged: allowsMonthly
+              ? (val) => setState(() => allowsDaily = val ?? true)
+              : null,
+        ),
+        CheckboxListTile(
+          title: const Text(
+            "الحجز الشهري",
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.redAccent,
+            ),
+          ),
+          subtitle: const Text(
+            "اشتراك لأربعة أسابيع في نفس اليوم والوقت.",
+            style: TextStyle(color: Colors.black54),
+          ),
+          value: allowsMonthly,
+          activeColor: Colors.redAccent,
+          controlAffinity: ListTileControlAffinity.leading,
+          onChanged: allowsDaily
+              ? (val) => setState(() => allowsMonthly = val ?? true)
+              : null,
+        ),
+        if (allowsMonthly) ...[
+          const SizedBox(height: 8),
+          TextField(
+            controller: monthlyPriceController,
+            keyboardType: TextInputType.number,
+            decoration: _inputDecoration(
+              "السعر الشهري (4 أسابيع)",
+              icon: Icons.calendar_view_month,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 6, right: 4, left: 4),
+            child: Text(
+              "سعر مستقل عن السعر اليومي. عند إنشاء الملعب بدأ من السعر اليومي × 4"
+              "${_dailyTimesFourHint()}، وتعديل السعر اليومي لا يغيّره.",
+              style: const TextStyle(color: Colors.black54, fontSize: 12),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // " (280.00)" when the daily price parses, nothing when the box is empty or
+  // mid-edit - a bare "x 4 ()" would read as a bug.
+  String _dailyTimesFourHint() {
+    final daily = double.tryParse(priceController.text.trim());
+    if (daily == null || daily <= 0) return "";
+    return " (${(daily * 4).toStringAsFixed(2)})";
+  }
+
   InputDecoration _inputDecoration(String label, {IconData? icon}) {
     return InputDecoration(
       labelText: label,
@@ -222,6 +341,7 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
     contactController.dispose();
     descriptionController.dispose();
     slotSeatsController.dispose();
+    monthlyPriceController.dispose();
     super.dispose();
   }
 
@@ -288,10 +408,12 @@ class _FieldsEditPageState extends State<FieldsEditPage> {
                       controller: priceController,
                       keyboardType: TextInputType.number,
                       decoration: _inputDecoration(
-                        "السعر",
+                        "السعر اليومي",
                         icon: Icons.attach_money_rounded,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    _buildBookingTypesSection(),
                     const SizedBox(height: 16),
                     Row(
                       children: [

@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import 'login_page.dart';
 import 'fields_calendar_page.dart';
 import 'fields_edit_page.dart';
+import 'gym_subscribers_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
@@ -22,6 +23,11 @@ class FieldsPage extends StatefulWidget {
 
 class _FieldsPageState extends State<FieldsPage> with RouteAware {
   List fields = [];
+
+  // Gyms this client owns. They sell memberships rather than time slots, so
+  // they sit in the same list but open a subscriber roll instead of a calendar.
+  List ownedPlans = [];
+
   bool loading = false;
   String? errorMessage;
   String walletBalance = "0";
@@ -32,6 +38,7 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
     super.initState();
     if (AuthService.isLoggedIn) {
       fetchFields();
+      fetchOwnedPlans();
       walletBalance = AuthService.clientData?['wallet_balance']?.toString() ?? "0";
     }
   }
@@ -105,6 +112,172 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
         loading = false;
       });
     }
+  }
+
+  // Deliberately independent of fetchFields: a client with no gyms is the
+  // normal case, and a failure here must not blank out their fields.
+  Future<void> fetchOwnedPlans() async {
+    try {
+      final res = await http.get(
+        Uri.parse("${apiUrl}clients/getOwnedPlans"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${AuthService.token}",
+          'x-api-key': '${dotenv.env['API_KEY']}'
+        },
+      );
+
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (!mounted) return;
+        setState(() => ownedPlans = data["plans"] ?? []);
+      }
+    } catch (_) {
+      // Leave the list empty; the fields above are the important part.
+    }
+  }
+
+  // A gym card. Same shape as a field card so the list reads as one thing,
+  // but it opens the subscriber roll rather than a calendar, and shows member
+  // counts where a field shows a price per hour.
+  Widget _buildGymCard(Map<String, dynamic> plan) {
+    final images = (plan["images"] as List<dynamic>?) ?? [];
+    final imageUrl = getFirstImageUrl(images);
+    final maxSeats = int.tryParse(plan["max_seats"]?.toString() ?? '');
+    final active = plan["active_subscribers"] ?? 0;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => GymSubscribersPage(
+              plan: plan,
+              token: AuthService.token,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(5),
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.redAccent.withValues(alpha: 0.1),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (imageUrl.isNotEmpty)
+              ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(5)),
+                child: Image.network(
+                  imageUrl,
+                  width: double.infinity,
+                  height: 160,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          plan["name"]?.toString() ?? '',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.redAccent),
+                        ),
+                        child: const Text(
+                          "اشتراكات",
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.redAccent,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.people_alt_outlined,
+                          color: Colors.redAccent, size: 18),
+                      const SizedBox(width: 4),
+                      Text(
+                        maxSeats == null
+                            ? "$active مشترك نشط"
+                            : "$active من $maxSeats مشترك نشط",
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.attach_money_rounded,
+                          color: Colors.redAccent, size: 18),
+                      const SizedBox(width: 4),
+                      Text(
+                        "${plan["monthly_price"] ?? 0} د.ل / شهرياً",
+                        style: const TextStyle(
+                            color: Colors.black54, fontSize: 15),
+                      ),
+                    ],
+                  ),
+                  if ((plan["location"]?.toString().trim().isNotEmpty ??
+                      false)) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_outlined,
+                            color: Colors.redAccent, size: 18),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            plan["location"].toString(),
+                            style: const TextStyle(
+                                color: Colors.black54, fontSize: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String getFirstImageUrl(List<dynamic> images) {
@@ -193,8 +366,17 @@ class _FieldsPageState extends State<FieldsPage> with RouteAware {
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.all(12),
-                        itemCount: fields.length,
+                        // Gyms are appended after the fields so an owner with
+                        // both keeps the layout they already know.
+                        itemCount: fields.length + ownedPlans.length,
                         itemBuilder: (context, index) {
+                          if (index >= fields.length) {
+                            return _buildGymCard(
+                              ownedPlans[index - fields.length]
+                                  as Map<String, dynamic>,
+                            );
+                          }
+
                           final field = fields[index];
                           final imageUrl =
                               getFirstImageUrl(field["field_images"]);

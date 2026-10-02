@@ -711,6 +711,108 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
     if (mounted) setState(() => _isLoading = false);
   }
 
+  // One discount over a time window across a run of days. The window itself
+  // needs no per-slot expansion - _findDiscountForSlot matches by containment,
+  // so a single 15:00-19:00 row already covers every slot inside it. The
+  // server writes one row per day and reports how many it created.
+  Future<void> _createBulkDiscount({
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+    required DateTime dateFrom,
+    required DateTime dateTo,
+    required String bookingPrice,
+    required String remainingPrice,
+    required bool isDaily,
+    required bool isMonthly,
+  }) async {
+    setState(() => _isLoading = true);
+
+    String hm(TimeOfDay t) =>
+        "${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}";
+    String ymd(DateTime d) =>
+        "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
+
+    final response = await http.post(
+      Uri.parse("${apiUrl}clients/createFieldDiscountBulk"),
+      headers: {
+        'Authorization': 'Bearer ${widget.token}',
+        'Content-Type': 'application/json',
+        'x-api-key': '${dotenv.env['API_KEY']}'
+      },
+      body: jsonEncode({
+        'field_id': widget.field['field_id'],
+        'date_from': ymd(dateFrom),
+        'date_to': ymd(dateTo),
+        'start_time': hm(startTime),
+        'end_time': hm(endTime),
+        'booking_price': bookingPrice,
+        'remaining_price': remainingPrice,
+        'is_daily': isDaily,
+        'is_monthly': isMonthly,
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+
+    String message;
+    if (response.statusCode == 200) {
+      final created = data['created_count'] ?? 0;
+      final skipped = data['skipped_count'] ?? 0;
+      message = "تم تطبيق الخصم على $created يوم";
+      // Days that already had an overlapping discount are skipped rather than
+      // stacked, so saying only "created N" would be misleading.
+      if (skipped is int && skipped > 0) {
+        message += " (تم تخطي $skipped يوم عليها خصم بالفعل)";
+      }
+    } else {
+      message = data['error'] ?? "فشل تطبيق الخصم";
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(message, textAlign: TextAlign.center),
+        backgroundColor:
+            response.statusCode == 200 ? Colors.green : Colors.redAccent,
+        duration: const Duration(seconds: 4),
+      ));
+    }
+
+    if (response.statusCode == 200) await _refreshBookings();
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  // Takes off every day a bulk run created, not just the one on screen.
+  Future<void> _removeDiscountBatch(Map<String, dynamic> discount) async {
+    final batchId = discount['batch_id'];
+    if (batchId == null) return;
+
+    setState(() => _isLoading = true);
+
+    final response = await http.delete(
+      Uri.parse("${apiUrl}clients/deleteFieldDiscountBatch/$batchId"),
+      headers: {
+        'Authorization': 'Bearer ${widget.token}',
+        'x-api-key': '${dotenv.env['API_KEY']}'
+      },
+    );
+
+    final data = jsonDecode(response.body);
+    final message = data['error'] ??
+        "تم إزالة الخصم من ${data['deleted_count'] ?? 0} يوم";
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(message, textAlign: TextAlign.center),
+        backgroundColor:
+            response.statusCode == 200 ? Colors.green : Colors.redAccent,
+        duration: const Duration(seconds: 3),
+      ));
+    }
+
+    if (response.statusCode == 200) await _refreshBookings();
+    if (mounted) setState(() => _isLoading = false);
+  }
+
   Future<void> _removeDiscount(Map<String, dynamic> discount) async {
     setState(() => _isLoading = true);
 
@@ -739,12 +841,262 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
     if (mounted) setState(() => _isLoading = false);
   }
 
+  // Not tied to one slot or one day, so it is reached from the app bar rather
+  // than by tapping a slot.
+  Future<void> _showBulkDiscountDialog() async {
+    final priceController = TextEditingController();
+    final remainingController = TextEditingController();
+
+    // Seeded from the day being viewed and the field's opening hours, so the
+    // common case ("this window, from today, for a while") is a few taps.
+    TimeOfDay startTime =
+        _timeOfDayFromMinutes(_parseMinutes(widget.field['field_open_time']) ?? 8 * 60);
+    TimeOfDay endTime = _timeOfDayFromMinutes(
+        (_parseMinutes(widget.field['field_open_time']) ?? 8 * 60) + _slotDuration);
+    DateTime dateFrom = widget.date;
+    DateTime dateTo = widget.date;
+    bool isDaily = true;
+    bool isMonthly = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          Future<void> pickTime({required bool isStart}) async {
+            final picked = await showTimePicker(
+              context: ctx,
+              initialTime: isStart ? startTime : endTime,
+            );
+            if (picked != null) {
+              setLocal(() {
+                if (isStart) {
+                  startTime = picked;
+                } else {
+                  endTime = picked;
+                }
+              });
+            }
+          }
+
+          Future<void> pickDate({required bool isStart}) async {
+            final picked = await showDatePicker(
+              context: ctx,
+              initialDate: isStart ? dateFrom : dateTo,
+              firstDate: DateTime.now().subtract(const Duration(days: 1)),
+              lastDate: DateTime.now().add(const Duration(days: 180)),
+            );
+            if (picked != null) {
+              setLocal(() {
+                if (isStart) {
+                  dateFrom = picked;
+                } else {
+                  dateTo = picked;
+                }
+              });
+            }
+          }
+
+          Widget pickerTile(String label, String value, VoidCallback onTap) {
+            return Expanded(
+              child: InkWell(
+                onTap: onTap,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade400),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(label,
+                          style: const TextStyle(
+                              fontSize: 11, color: Colors.black54)),
+                      const SizedBox(height: 2),
+                      Text(value,
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          String hm(TimeOfDay t) =>
+              "${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}";
+          String dmy(DateTime d) =>
+              "${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}";
+
+          final dayCount = dateTo.difference(dateFrom).inDays + 1;
+
+          return AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            title: const Text("خصم على عدة فترات",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                    fontSize: 16)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "يطبق الخصم على كل الفترات ضمن الوقت المحدد، في كل يوم ضمن المدة المحددة.",
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    pickerTile("من الساعة", hm(startTime),
+                        () => pickTime(isStart: true)),
+                    const SizedBox(width: 8),
+                    pickerTile("إلى الساعة", hm(endTime),
+                        () => pickTime(isStart: false)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    pickerTile("من يوم", dmy(dateFrom),
+                        () => pickDate(isStart: true)),
+                    const SizedBox(width: 8),
+                    pickerTile("إلى يوم", dmy(dateTo),
+                        () => pickDate(isStart: false)),
+                  ]),
+                  const SizedBox(height: 6),
+                  Text(
+                    dayCount > 0 ? "$dayCount يوم" : "مدة غير صالحة",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: dayCount > 0 ? Colors.green : Colors.redAccent,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: priceController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: "سعر الحجز بعد الخصم",
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: remainingController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: "المتبقي عند الوصول",
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text("الحجز اليومي",
+                        style: TextStyle(fontSize: 13)),
+                    value: isDaily,
+                    activeColor: Colors.green,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    onChanged: (v) => setLocal(() => isDaily = v ?? false),
+                  ),
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text("الحجز الشهري",
+                        style: TextStyle(fontSize: 13)),
+                    value: isMonthly,
+                    activeColor: Colors.green,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    onChanged: (v) => setLocal(() => isMonthly = v ?? false),
+                  ),
+                ],
+              ),
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            actions: [
+              Row(children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text("إلغاء",
+                        style: TextStyle(color: Colors.black54)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(5)),
+                    ),
+                    onPressed: () async {
+                      final price = priceController.text.trim();
+                      final remaining = remainingController.text.trim();
+
+                      String? error;
+                      if (price.isEmpty || remaining.isEmpty) {
+                        error = "أدخل سعر الخصم والمتبقي";
+                      } else if (dateTo.isBefore(dateFrom)) {
+                        error = "تاريخ النهاية يجب أن يكون بعد البداية";
+                      } else if (!isDaily && !isMonthly) {
+                        error = "اختر نوع حجز واحد على الأقل";
+                      }
+
+                      if (error != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text(error, textAlign: TextAlign.center),
+                          backgroundColor: Colors.redAccent,
+                        ));
+                        return;
+                      }
+
+                      Navigator.pop(ctx);
+                      await _createBulkDiscount(
+                        startTime: startTime,
+                        endTime: endTime,
+                        dateFrom: dateFrom,
+                        dateTo: dateTo,
+                        bookingPrice: price,
+                        remainingPrice: remaining,
+                        isDaily: isDaily,
+                        isMonthly: isMonthly,
+                      );
+                    },
+                    child: const Text("تطبيق",
+                        style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              ]),
+            ],
+          );
+        },
+      ),
+    );
+
+    priceController.dispose();
+    remainingController.dispose();
+  }
+
+  TimeOfDay _timeOfDayFromMinutes(int minutes) {
+    final wrapped = minutes % (24 * 60);
+    return TimeOfDay(hour: wrapped ~/ 60, minute: wrapped % 60);
+  }
+
   Future<void> _showDiscountedSlotDialog(
       TimeSlot slot, Map<String, dynamic> discount) async {
     final bookingPrice = discount['booking_price'];
     final remainingPrice = discount['remaining_price'];
     final validFrom = discount['valid_from'];
     final validTo = discount['valid_to'];
+    // How many days a bulk run still covers. 1 (or a missing value, on a
+    // server without the BulkDiscounts migration) means this is a lone row.
+    final batchSize =
+        int.tryParse(discount['batch_size']?.toString() ?? '') ?? 1;
 
     await showDialog(
       context: context,
@@ -813,12 +1165,33 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
                     Navigator.pop(context);
                     await _removeDiscount(discount);
                   },
-                  child: const Text("إزالة الخصم",
-                      style: TextStyle(color: Colors.white)),
+                  child: Text(batchSize > 1 ? "هذا اليوم فقط" : "إزالة الخصم",
+                      style: const TextStyle(color: Colors.white)),
                 ),
               ),
             ],
           ),
+          // Part of a bulk run: without this the owner would have to reopen
+          // every single day to undo one action.
+          if (batchSize > 1) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade900,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(5)),
+                ),
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _removeDiscountBatch(discount);
+                },
+                child: Text("إزالة الخصم من كل الأيام ($batchSize)",
+                    style: const TextStyle(color: Colors.white)),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1454,6 +1827,15 @@ class _BookingSlotsPageState extends State<BookingSlotsPage> {
                 style: const TextStyle(color: Colors.white)),
             backgroundColor: Colors.redAccent,
             iconTheme: const IconThemeData(color: Colors.white),
+            actions: [
+              // A bulk discount spans a time window and a run of days, so it
+              // belongs to the whole page rather than to any one slot.
+              IconButton(
+                icon: const Icon(Icons.sell_outlined, color: Colors.white),
+                tooltip: "خصم على عدة فترات",
+                onPressed: _isLoading ? null : _showBulkDiscountDialog,
+              ),
+            ],
           ),
           backgroundColor: Colors.red.shade50,
           body: Stack(
